@@ -1,6 +1,5 @@
 """AbyssText translation workbench. All Tk access stays on the main thread."""
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 import json
 import os
@@ -9,6 +8,7 @@ import queue
 import re
 import sys
 import threading
+import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
 from urllib.parse import urlparse
@@ -18,7 +18,9 @@ from live_bridge import LiveBridge
 from languages import NAMES, already_target_chinese
 from translation_api import Settings, batches, translate, game_auto_allowed
 from free_online import PROVIDER as FREE_ONLINE, TranslationCache
-from workbench import Project, STATES, Unit, export_copy, export_csv, export_native, native_xml, source_id
+from online_worker import run_online
+from translation_diagnostics import TranslationDiagnostics, safe_error
+from workbench import Project, STATES, Unit, export_copy, export_csv, export_native, native_xml, source_id, quality
 from ui_i18n import Localizer, canonical, tr
 
 BG, CARD, FIELD, LINE = "#f5f2ed", "#ffffff", "#fcfbf8", "#dfd8d3"
@@ -84,6 +86,9 @@ class WorkbenchWindow:
         self.live_session = ""
         self.live_attempted = set()
         self.live_generate = False
+        self.live_failures = {}
+        self.live_cooldown_until = 0
+        self.diagnostics = TranslationDiagnostics(enabled=preferences_path is not False)
         self.live_drafts = tk.BooleanVar(value=True)
         self.live_online = tk.BooleanVar(value=False)
         self.online_cache=TranslationCache()
@@ -675,6 +680,8 @@ class WorkbenchWindow:
         provider=self.canon(self.provider.get())
         target_language=self.project.target_language
         task_session=self.live_session
+        source_language=self.project.source_language
+        scope={'session':task_session,'source':source_language,'target':target_language}
         # Only send relevant glossary, bounded independently of import size.
         sources="\n".join(u.source for u in units)
         glossary={k:v for k,v in self.project.glossary.items() if k in sources}
@@ -682,23 +689,16 @@ class WorkbenchWindow:
         def worker():
             try:
                 if provider==FREE_ONLINE:
-                    # At most two requests in flight and four queued units;
-                    # never create one thread/future per game string.
-                    with ThreadPoolExecutor(max_workers=2,thread_name_prefix='AbyssText-online') as pool:
-                        for start in range(0,len(snapshots),4):
-                            if self.cancel.is_set():break
-                            pending=[pool.submit(self.online_cache.translate,u,target_language,cancelled=self.cancel.is_set) for u in snapshots[start:start+4]]
-                            for future in as_completed(pending):
-                                if self.cancel.is_set():break
-                                result=future.result()
-                                if not self.cancel.is_set() and task_session==self.live_session:self.events.put(("drafts",result))
-                            self.online_cache.flush()
+                    run_online(snapshots,target_language,self.online_cache,self.cancel.is_set,
+                        lambda result:self.events.put(('drafts_scoped',{**scope,'result':result})),
+                        lambda unit,error:self.events.put(('draft_failure',{**scope,'id':unit.id,
+                            'error':safe_error(error),'retry_after':getattr(error,'retry_after',0)})))
                     return
                 for group in batches(snapshots):
                     if self.cancel.is_set():break
                     result=translate(settings,group,glossary,target_language=target_language)
                     if self.cancel.is_set():break
-                    self.events.put(("drafts",result))
+                    self.events.put(("drafts_scoped",{**scope,'result':result}))
             except Exception as error:self.events.put(("error",str(error)))
             finally:
                 try:self.online_cache.flush()
@@ -783,7 +783,8 @@ class WorkbenchWindow:
         if not self.bridge or not self.project:return
         self.commit_editor()
         try:
-            keys,literals,notes=self.bridge.publish(self.project,self.live_request,self.live_drafts.get(),complete=complete)
+            keys,literals,notes=self.bridge.publish(self.project,self.live_request,self.live_drafts.get(),complete=complete,
+                progress={'failed':len(self.live_failures),'last_error':next((v['error'] for v in reversed(list(self.live_failures.values()))),'')})
             self.status.set(f"发送到游戏：{keys} 个语言键，{literals} 条显示文字；{len(notes)} 条跳过。等待客户端刷新。")
         except (OSError,ValueError) as error:self.error(error)
 
@@ -794,6 +795,8 @@ class WorkbenchWindow:
                 if status:
                     running="试译运行中" if status.get('active') else "试译已停止"
                     self.mode_label.set(f"{running} · 已采集 {status.get('submitted_records',0)} · 已译 {status.get('translated_records',0)}")
+                    if self.live_failures:
+                        self.mode_label.set(self.mode_label.get()+f" · 失败 {len(self.live_failures)}（见诊断）")
                     if status.get('last_error') and not self.busy:self.status.set('游戏桥接：'+str(status['last_error']))
             if self.bridge:
                 request=self.bridge.read_request()
@@ -805,6 +808,8 @@ class WorkbenchWindow:
                         if self.busy:self.cancel.set()
                         self.live_session=session
                         self.live_attempted.clear()
+                        self.live_failures.clear()
+                        self.live_cooldown_until=0
                     self.live_generate=generate
                     self.commit_editor()
                     if self.project:
@@ -828,9 +833,13 @@ class WorkbenchWindow:
                         self.status.set("请在翻译设置中开启游戏按钮联网，或使用离线/本机服务。")
                         self.publish_live()  # Acknowledge so the client can submit later requests.
                     else:self.publish_live()
-                if self.live_generate and not self.busy and self.project:
+                if self.live_generate and not self.busy and self.project and (not status or status.get('active')):
                     allowed=self.canon(self.provider.get())==FREE_ONLINE or game_auto_allowed(self.api.endpoint,self.canon(self.provider.get())=="离线复用",self.live_online.get())
-                    if allowed:
+                    if allowed and time.monotonic()>=self.live_cooldown_until:
+                        for uid,failed in self.live_failures.items():
+                            if failed['retry_at'] and time.monotonic()>=failed['retry_at'] and failed['attempts']<2:
+                                self.live_attempted.discard(uid)
+                                failed['retry_at']=0
                         units=[u for u in self.project.units if not u.translation and u.state!="忽略" and u.id not in self.live_attempted and any(e.file=="<游戏内>" for e in u.occurrences)]
                         units.sort(key=lambda u:min(e.location.get('live_priority',2) for e in u.occurrences if e.file=="<游戏内>"))
                         batch=units[:4]
@@ -844,6 +853,18 @@ class WorkbenchWindow:
         try:
             while True:
                 kind,value=self.events.get_nowait()
+                if kind in {'drafts_scoped','draft_failure'}:
+                    if not self.project or (value['session'],value['source'],value['target'])!=(self.live_session,self.project.source_language,self.project.target_language):continue
+                    if kind=='drafts_scoped':kind,value='drafts',value['result']
+                    else:
+                        uid=value['id'];attempts=self.live_failures.get(uid,{}).get('attempts',0)+1
+                        self.live_failures[uid]={'error':value['error'],'attempts':attempts,
+                            'retry_at':time.monotonic()+value['retry_after'] if value['retry_after'] and attempts<2 else 0}
+                        self.task_error=value['error']
+                        if value['retry_after']:self.live_cooldown_until=max(self.live_cooldown_until,time.monotonic()+value['retry_after'])
+                        self.diagnostics.record('failed',uid,error=value['error'],attempts=attempts)
+                        self.status.set('单条翻译失败，其他条目继续：'+value['error'])
+                        continue
                 if kind=="progress":self.status.set(value)
                 elif kind=="project":
                     self.commit_editor()
@@ -864,15 +885,25 @@ class WorkbenchWindow:
                     if self.task_error:self.status.set("任务未全部完成："+self.task_error)
                 elif kind=="drafts" and self.project:
                     self.commit_editor()
-                    count=0
+                    count,rejected=0,0
                     for uid,result in value.items():
                         if uid in self.project.by_id and not self.project.by_id[uid].translation:
                             self.project.update(uid,result["translation"])
                             self.project.by_id[uid].origin="机器翻译草稿（未校对）"
+                            issues=quality(self.project.by_id[uid].source,result['translation'])
+                            if issues:
+                                reason='译文未应用：'+'；'.join(issues)
+                                self.live_failures[uid]={'error':reason,'attempts':1,'retry_at':0}
+                                self.task_error=reason;rejected+=1
+                                self.diagnostics.record('rejected',uid,error=reason)
+                            else:
+                                self.live_failures.pop(uid,None)
+                                if not self.live_failures:self.task_error=''
+                                self.diagnostics.record('translated',uid)
                             count+=1
                     self.reload_current_editor()
                     if self.bridge and self.live_request:self.publish_live(complete=False)
-                    self.status.set(f"本批生成 {count} 条草稿，请检查右侧质量提示并校对。")
+                    self.status.set(f"本批收到 {count} 条草稿，{rejected} 条格式不符未应用；请检查质量提示。")
         except queue.Empty:pass
         self.root.after(100,self.poll)
 

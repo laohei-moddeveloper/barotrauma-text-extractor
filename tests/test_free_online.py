@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from free_online import translate_unit, TranslationCache
+from free_online import TranslationServiceError
+from urllib.error import HTTPError
 
 
 class FreeOnlineTests(unittest.TestCase):
@@ -50,6 +52,12 @@ class FreeOnlineTests(unittest.TestCase):
             return io.BytesIO(b'{"responseStatus":403,"quotaFinished":true}')
         with self.assertRaisesRegex(ValueError,'额度'):
             translate_unit(self.unit('Warning'),'Simplified Chinese',opener)
+
+    def test_http_rate_limit_has_long_cooldown(self):
+        def opener(*args,**kwargs):raise HTTPError('https://example.invalid',429,'rate limit',{},None)
+        with self.assertRaises(TranslationServiceError) as failure:
+            translate_unit(self.unit('Warning'),'Simplified Chinese',opener)
+        self.assertEqual(failure.exception.retry_after,3600)
 
     def test_cancellation_never_sends(self):
         def opener(*args,**kwargs):raise AssertionError('unexpected network')

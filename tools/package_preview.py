@@ -3,9 +3,11 @@ import hashlib
 from pathlib import Path
 import subprocess
 import zipfile
+import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.2.0-rc1'
+sys.path.insert(0,str(ROOT))
+from extractor import VERSION
 
 
 def main():
@@ -17,13 +19,13 @@ def main():
                     '-o',str(output/f'AbyssText-{VERSION}-source.zip'),'HEAD'],cwd=ROOT,check=True)
     with zipfile.ZipFile(output/f'AbyssText-{VERSION}-Windows-x64.zip','w',zipfile.ZIP_DEFLATED) as archive:
         archive.write(exe,'AbyssText/BarotraumaTextExtractor.exe')
-        for name in ['README.md','README_EN.md','docs/WINDOWS-v0.2.md','docs/VALIDATION-v0.2.md']:
+        for name in ['README.md','README_EN.md','docs/WINDOWS-v0.2.md','docs/VALIDATION-v0.2.md','docs/FIX-zero-translations-rc2.zh-CN.md']:
             archive.write(ROOT/name,'AbyssText/'+name)
         archive.writestr('AbyssText/VERSION.txt',VERSION+'\nExperimental live companion: awaiting user game acceptance.\n')
     with zipfile.ZipFile(output/f'AbyssTextLive-{VERSION}.zip','w',zipfile.ZIP_DEFLATED) as archive:
         for name in ['filelist.xml','Live/Translations.xml','Lua/Autorun/abysstext.lua']:
             archive.write(ROOT/'live-mod/AbyssTextLive'/name,'AbyssTextLive/'+name)
-        archive.write(ROOT/'docs/WINDOWS-v0.2.md','INSTALL-AND-LIMITS.zh-CN.md')
+        archive.write(ROOT/'docs/FIX-zero-translations-rc2.zh-CN.md','INSTALL-AND-LIMITS.zh-CN.md')
     sums=[]
     for path in sorted(output.glob('*.zip')):
         with zipfile.ZipFile(path) as archive:

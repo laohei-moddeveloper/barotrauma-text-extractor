@@ -65,7 +65,7 @@ class LiveBridge:
         self.session_id=str(data.get('session_id',''))
         return report, bool(data.get("translate")), data.get("request_id",digest)
 
-    def publish(self, project, request_id, drafts=False, complete=True):
+    def publish(self, project, request_id, drafts=False, complete=True, progress=None):
         from types import SimpleNamespace
         observed = [replace(u,occurrences=[e for e in u.occurrences if e.file=="<游戏内>"])
                     for u in project.units if any(e.file=="<游戏内>" for e in u.occurrences)]
@@ -78,8 +78,12 @@ class LiveBridge:
             literals[unit.source] = unit.translation
         for name in ["Translations.xml","response.json"]:
             if (self.data/name).is_symlink(): raise ValueError("桥接输出不允许符号链接")
-        atomic_write(self.data/"Translations.xml",content)
+        language_revision=hashlib.sha256(content.encode()).hexdigest()
+        if getattr(self,'written_language_revision',None)!=language_revision:
+            atomic_write(self.data/"Translations.xml",content)
+            self.written_language_revision=language_revision
         atomic_write(self.data/"response.json",json.dumps({"protocol":1,"request_id":request_id,
             "revision":hashlib.sha256((content+json.dumps(literals,ensure_ascii=False)).encode()).hexdigest(),
-            "translations":literals,"keys":count,"drafts":drafts,"complete":complete},ensure_ascii=False))
+            "translations":literals,"keys":count,"drafts":drafts,"complete":complete,
+            "language_revision":language_revision,"progress":progress or {}},ensure_ascii=False))
         return count,len(literals),reasons

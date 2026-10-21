@@ -1,5 +1,7 @@
 # Windows 候选验收记录 · 2026-10-21
 
+最新候选为 rc2：见 [零译文与卡顿修复记录](FIX-zero-translations-rc2.zh-CN.md)。以下保留 rc1 的历史验收数据，不代表 rc2 已通过真实游戏验收。
+
 分支：`codex/abysstext-workbench`。本机与云端结果分别记录；游戏部分在用户要求下交由用户亲自验收。
 
 ## 已完成

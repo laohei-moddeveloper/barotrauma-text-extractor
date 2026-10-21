@@ -8,6 +8,8 @@ local active, pending, dirty = false, false, false
 local nextPoll, nextSend, serial, nextSettings = 0, 0, 0, 0
 local requestId, revision = "", ""
 local sessionId = ""
+local languageRevision, hadLanguageKeys = "", false
+local applyQueue, applyIndex, responseRaw = {}, 1, ""
 local translations, translatedValues, queued, sent, controls, originals = {}, {}, {}, {}, {}, {}
 local queuedCount, controlCount = 0, 0
 local queuedBytes, sentCount = 0, 0
@@ -98,14 +100,16 @@ end
 local function Observe(text, key, priority)
     if not active or type(text) ~= "string" or #text < 2 or #text > 20000 then return end
     if text:find("译潜 · ",1,true)==1 or text:find("AbyssText · ",1,true)==1 then return end
-    if sourceLanguage=="English" and (targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[\228-\233][\128-\191][\128-\191]") then return end
+    -- MoonSharp uses .NET strings, not UTF-8 byte strings. Match Han directly.
+    if sourceLanguage=="English" and (targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]") then return end
     if not (text:match("%a") or text:match("[\128-\255]")) or translatedValues[text] or translations[text] then return end
     if key == nil or key == "" then text = Signature(text) end
     if translatedValues[text] or translations[text] then return end
     local identity = (key or "") .. "\0" .. text
     priority=priority or (key and key~="" and 3 or 1)
     if queued[identity] then queued[identity].priority=math.min(queued[identity].priority,priority);return end
-    if sent[identity] or queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
+    if sent[identity]~=nil and (priority~=0 or sent[identity]==0) then return end
+    if queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
     queued[identity] = {text=text, key=key or "",priority=priority}
     queuedCount = queuedCount + 1
     queuedBytes = queuedBytes + #text + #(key or "")
@@ -132,7 +136,7 @@ end
 local function CollectLanguageKeys()
     local function Budget()
         preloadSteps=preloadSteps+1
-        if preloadSteps>=200 or queuedCount>=256 then preloadSteps=0;coroutine.yield() end
+        if preloadSteps>=32 or queuedCount>=64 then preloadSteps=0;coroutine.yield() end
     end
     local current = {}
     local targetPacks = PacksFor(targetLanguage)
@@ -185,7 +189,7 @@ local function CollectPrefabs()
                 for prefab in collection do
                     local function QueueValue(value,key)
                         local text=TextValue(value)
-                        local localized=targetLanguage=="Simplified Chinese" and text:find("[\228-\233][\128-\191][\128-\191]")
+                        local localized=(targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]")
                         if not localized then Observe(text,key,2) end
                     end
                     for _, field in ipairs({"Name","Description","CauseOfDeathDescription","SelfCauseOfDeathDescription","SuccessMessage","FailureMessage"}) do
@@ -202,7 +206,7 @@ local function CollectPrefabs()
                         pcall(function() for message in prefab.Messages do QueueValue(message) end end)
                     end
                     preloadSteps=preloadSteps+1
-                    if preloadSteps>=200 or queuedCount>=256 then preloadSteps=0;coroutine.yield() end
+                    if preloadSteps>=32 or queuedCount>=64 then preloadSteps=0;coroutine.yield() end
                 end
             end)
             if not ok then Warn("prefab"..registry,"Prefab capture unavailable: "..registry..": "..tostring(err)) end
@@ -217,7 +221,7 @@ local function ReportStatus()
     end)
 end
 local function ResumePreload()
-    if preload==nil or pending or queuedCount>=256 then return end
+    if preload==nil or pending or queuedCount>=64 then return end
     local ok, err=coroutine.resume(preload)
     if not ok then Warn("preload","Loaded-text capture failed: "..tostring(err));preload=nil
     elseif coroutine.status(preload)=="dead" then preload=nil end
@@ -258,8 +262,14 @@ ApplyControl = function(component)
         if not ok then controls[component] = nil; originals[component] = nil end
 end
 local function ApplyControls()
-    for component in pairs(controls) do
-        ApplyControl(component)
+    applyQueue,applyIndex={},1
+    for component in pairs(controls) do applyQueue[#applyQueue+1]=component end
+end
+local function ApplyControlBatch()
+    for i=1,32 do
+        local component=applyQueue[applyIndex]
+        if component==nil then applyQueue={};applyIndex=1;return end
+        ApplyControl(component);applyIndex=applyIndex+1
     end
 end
 local function SendRequest()
@@ -270,14 +280,15 @@ local function SendRequest()
         if not pending or record.priority==0 then candidates[#candidates+1]={identity=identity,record=record} end
     end
     table.sort(candidates,function(a,b) return a.record.priority<b.record.priority end)
-    for i=1,math.min(64,#candidates) do records[#records+1]=candidates[i].record end
+    for i=1,math.min(8,#candidates) do records[#records+1]=candidates[i].record end
     if #records == 0 then return end
     serial = serial + 1
     requestId = tostring(Timer.GetTime()) .. "." .. tostring(serial)
     File.Write(live .. "requests.json", json.serialize({protocol=1, session_id=sessionId,request_id=requestId, translate=true, source_language=sourceLanguage, target_language=targetLanguage, records=records}))
     for i=1,#records do
         local identity=candidates[i].identity
-        sent[identity]=true;sentCount=sentCount+1
+        if sent[identity]==nil then sentCount=sentCount+1 end
+        sent[identity]=records[i].priority
         queuedBytes=queuedBytes-#queued[identity].text-#queued[identity].key
         queued[identity]=nil;queuedCount=queuedCount-1
     end
@@ -285,10 +296,12 @@ local function SendRequest()
     print("[AbyssTextLive] " .. Ui("已请求试译；请保持桌面工作台运行。条数：", "Translation requested. Keep the desktop workbench running. Records: ") .. #records)
 end
 local function Begin()
+    if active then return end
     local configured, err = pcall(ReadSettings)
     if not configured then Warn("settings", Ui("无法读取语言设置：", "Cannot read language settings: ") .. tostring(err)) end
     if sourceLanguage == targetLanguage then Warn("same", Ui("源语言与目标语言相同，请在桌面切换。", "Source and target languages match. Change them in the desktop workbench.")) return end
     active, pending = true, false
+    responseRaw,revision="",""
     sessionId=tostring(Timer.GetTime())..".session."..tostring(serial+1)
     if not installed then InstallPatches() end
     UpdateButton()
@@ -318,6 +331,8 @@ end
 local function Stop()
     active, pending, dirty = false, false, false
     preload=nil
+    applyQueue,applyIndex,responseRaw={},1,""
+    languageRevision,hadLanguageKeys,revision="",false,""
     for component, old in pairs(originals) do
         pcall(function() if TextValue(component.Text) == old.display then component.Text = old.value end end)
     end
@@ -423,12 +438,16 @@ Hook.Add("think", "abysstext.live", function()
         if now >= nextSettings then nextSettings=now+2; pcall(ReadSettings) end
         return
     end
+    ApplyControlBatch()
     if now >= nextPoll then
         nextPoll = now + 1
         local ok, err = pcall(function()
             if File.Exists(live .. "response.json") then
-                local response = json.parse(File.Read(live .. "response.json"))
+                local raw=File.Read(live .. "response.json")
+                if raw==responseRaw then return end
+                local response = json.parse(raw)
                 if response.protocol == 1 and response.request_id == requestId then
+                    responseRaw=raw
                     if response.revision ~= revision then
                         revision = response.revision
                         for source, target in pairs(response.translations or {}) do
@@ -436,8 +455,15 @@ Hook.Add("think", "abysstext.live", function()
                             translations[source] = target
                             translatedValues[target] = true
                         end
-                        RefreshLanguage(false)
+                        if response.language_revision==nil then
+                            RefreshLanguage(false) -- Compatibility with older workbenches.
+                        elseif response.language_revision~=languageRevision then
+                            local hasKeys=(response.keys or 0)>0
+                            if hasKeys or hadLanguageKeys then RefreshLanguage(false) end
+                            hadLanguageKeys=hasKeys;languageRevision=response.language_revision
+                        end
                         ApplyControls()
+                        ApplyControlBatch()
                     end
                     if response.complete ~= false then pending = false end
                 end

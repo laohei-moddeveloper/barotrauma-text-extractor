@@ -28,6 +28,12 @@ CODES = dict(zip(
 TOKENS = re.compile(r"(‖[^‖]*‖|<[^>]*>|\[[^\]\n]+\]|\{[^}\n]+\}|%(?:\d+\$)?[-+#0 .\d]*[a-zA-Z]|\r\n|\n|\r)")
 
 
+class TranslationServiceError(ValueError):
+    def __init__(self,message,retry_after=0):
+        super().__init__(message)
+        self.retry_after=retry_after
+
+
 class TranslationCache:
     """Bounded language-pair cache; local only, no API keys or project paths."""
     def __init__(self,path=None):
@@ -115,13 +121,17 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
                 if len(raw)>1024*1024: raise ValueError("联网翻译响应过大。")
                 data = json.loads(raw)
                 if data.get("quotaFinished") or str(data.get("responseStatus")) in {"403","429"}:
-                    raise ValueError("免费联网翻译额度已用尽；已完成译文保留，请稍后继续。不会转用收费服务。")
+                    raise TranslationServiceError("免费联网翻译额度已用尽；已完成译文保留，请稍后继续。不会转用收费服务。",3600)
                 result = data.get("responseData",{}).get("translatedText")
                 if str(data.get("responseStatus")) != "200" or not isinstance(result,str) or not result:
                     raise ValueError("免费联网翻译服务返回错误；已完成译文保留。")
                 translated.append(html.unescape(result))
-            except (HTTPError,URLError,TimeoutError,OSError):
-                raise ValueError("免费联网翻译暂不可用或超时；已完成译文保留，请稍后点击继续。") from None
+            except HTTPError as error:
+                if error.code in {403,429}:
+                    raise TranslationServiceError("免费联网翻译被限流或拒绝；已完成译文保留，一小时后有限重试。",3600) from None
+                raise TranslationServiceError("免费联网翻译 HTTP 错误；已完成译文保留，稍后有限重试。",30) from None
+            except (URLError,TimeoutError,OSError):
+                raise TranslationServiceError("免费联网翻译暂不可用或超时；已完成译文保留，稍后有限重试。",30) from None
             except (KeyError,TypeError,json.JSONDecodeError):
                 raise ValueError("免费联网翻译响应格式无效；当前条目未写入。") from None
         output.append(leading+"".join(translated)+trailing)

@@ -102,7 +102,12 @@ MissionPrefab={Prefabs={{Name='Unseen rescue',Description='Find the missing capt
 JobPrefab={Prefabs={{Name='Unseen medic',Description='Treat injured crew'}}}
 """, """
 FlushTimers();commands.abyss_translate();FlushTimers()
-local texts={};for _,record in ipairs(RequestData().records) do texts[record.text]=true end
+local texts={}
+for cycle=1,4 do
+ local request=RequestData()
+ for _,record in ipairs(request.records) do texts[record.text]=true end
+ Response(request.request_id,'prefab'..cycle,true,{});Tick(3)
+end
 assert(texts['Unseen wrench'] and texts['Repairs the hull'] and texts['Unseen fever'] and texts['Raises temperature'] and texts['Unseen crawler'])
 assert(texts['Unseen rescue'] and texts['Find the missing captain'] and texts['Unseen medic'] and texts['Treat injured crew'])
 assert(texts['Severe fever'] and texts['Speak to the captain'] and texts['Rescue complete'] and texts['Rescue failed'])
@@ -145,9 +150,9 @@ for i=1,700 do table.insert(TextManager.TextPacks.English[1].Texts,{Key='unseen.
 """, """
 FlushTimers();commands.abyss_translate();FlushTimers()
 local seen={}
-for cycle=1,60 do
+for cycle=1,100 do
  local request=RequestData()
- assert(#request.records<=64)
+ assert(#request.records<=8)
  for _,record in ipairs(request.records) do if record.key:find('unseen.',1,true)==1 then seen[record.key]=true end end
  Response(request.request_id,tostring(cycle),true,{})
  Tick(3)
@@ -178,5 +183,44 @@ Response(request.request_id,'tooltip',true,{['Spineling Head']='尖刺怪头部'
 patches['abysstext.tooltip'](nil,p)
 assert(p.toolTip=='‖color:1,2,3‖尖刺怪头部‖color:end‖\n空心头部。',p.toolTip)
 commands.abyss_stop();assert(patches['abysstext.tooltip']==nil)
+""");
+Check("Han strings never enter initial or later capture queues", """
+control.Text='已有中文 English'
+ItemPrefab={Prefabs={{Name='已经汉化',Description='中文 English mixed'}}}
+TextManager.TextPacks.English={{Texts={{Key='zh',Value={{String='中文'}}},{Key='en',Value={{String='Untranslated item'}}}}}}
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+local request=RequestData()
+for _,r in ipairs(request.records) do assert(not r.text:find('[㐀-䶿一-鿿]'),r.text) end
+Response(request.request_id,'empty',true,{});Tick(3)
+patches['abysstext.draw.1'](nil,{text='另一个中文 English'})
+local before=writes;Tick(3);assert(writes==before)
+""");
+Check("literal-only replies avoid global language reload and apply incrementally", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+local before=versions
+disk[root..'/Live/response.json']=json.serialize({protocol=1,request_id=request.request_id,
+ revision='literal',language_revision='empty-xml',keys=0,complete=true,translations={['Open hatch']='打开舱门'}})
+Tick(1);assert(control.Text=='打开舱门' and versions==before)
+local count=versions;Tick(2);assert(versions==count)
+commands.abyss_stop();assert(control.Text=='Open hatch')
+""");
+Check("visible tooltip promotes already submitted background text once", """
+ItemPrefab={Prefabs={{Name='Spineling Head'}}}
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers();local first=RequestData()
+Response(first.request_id,'waiting',false,{});Tick(1)
+patches['abysstext.tooltip'](nil,{toolTip='Spineling Head'});Tick(3)
+local request=RequestData();assert(request.request_id~=first.request_id)
+assert(#request.records==1 and request.records[1].text=='Spineling Head' and request.records[1].priority==0)
+local before=writes;patches['abysstext.tooltip'](nil,{toolTip='Spineling Head'});Tick(3);assert(writes==before)
+""");
+Check("stop and restart accepts cached translations with unchanged revision", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+Response(request.request_id,'same-cache',true,{['Open hatch']='打开舱门'});Tick(1)
+assert(control.Text=='打开舱门');commands.abyss_stop();assert(control.Text=='Open hatch')
+commands.abyss_translate();FlushTimers();request=RequestData()
+Response(request.request_id,'same-cache',true,{['Open hatch']='打开舱门'});Tick(2)
+assert(control.Text=='打开舱门')
 """);
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

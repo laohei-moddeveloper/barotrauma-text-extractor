@@ -11,7 +11,7 @@ import re
 from xml.parsers import expat
 
 
-VERSION = "0.2.0-rc1"
+VERSION = "0.2.0-rc2"
 MAX_BYTES = 16 * 1024 * 1024
 
 
