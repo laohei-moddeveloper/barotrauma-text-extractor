@@ -30,6 +30,9 @@ class OnlineWorkerTests(unittest.TestCase):
         window.canon=lambda x:x;window.provider=SimpleNamespace(get=lambda:'免配置联网翻译')
         window.set_busy=lambda flag:setattr(window,'busy',flag)
         window.busy=False;window.task_error=''
+        window.draft_task_id=0;window.live_worker=False;window.cancel=threading.Event()
+        window.source_language=SimpleNamespace(get=lambda:'English')
+        window.target_language=SimpleNamespace(get=lambda:'Simplified Chinese')
         return window
 
     def test_failure_is_recorded_while_other_scoped_results_reach_project(self):
@@ -40,7 +43,8 @@ class OnlineWorkerTests(unittest.TestCase):
         window.events.put(('draft_done',None));window.poll()
         self.assertEqual(sum(bool(u.translation) for u in units),3)
         self.assertEqual(window.live_failures[units[0].id]['error'],'timeout')
-        self.assertGreater(window.live_cooldown_until,time.monotonic())
+        self.assertEqual(window.live_cooldown_until,0)
+        self.assertGreater(window.live_failures[units[0].id]['retry_at'],time.monotonic())
         self.assertTrue(window.publish_live.called)
 
     def test_old_target_language_result_is_never_applied(self):
@@ -100,6 +104,49 @@ class OnlineWorkerTests(unittest.TestCase):
     def test_cancelled_work_does_not_publish_or_schedule(self):
         def forbidden(*args,**kwargs):raise AssertionError('Cancelled work started')
         run_online([SimpleNamespace(id='x')],'French',SimpleNamespace(translate=forbidden,flush=forbidden),lambda:True,forbidden,forbidden)
+
+    def test_cache_save_error_does_not_discard_later_batches(self):
+        units=[SimpleNamespace(id=str(i)) for i in range(9)];results=[];warnings=[]
+        def flush():raise PermissionError('cache temporarily locked')
+        cache=SimpleNamespace(translate=lambda unit,*a,**k:{unit.id:{'translation':'译文','issues':[]}},flush=flush)
+        run_online(units,'Simplified Chinese',cache,lambda:False,results.append,lambda u,e:self.fail(str(e)),warnings.append)
+        self.assertEqual({key for result in results for key in result},{u.id for u in units})
+        self.assertEqual(len(warnings),3)
+
+    def test_quota_cools_down_provider_without_overwriting_successes(self):
+        window=self.window();unit=window.project.units[0]
+        window.events.put(('draft_failure',{'session':'one','source':'English','target':'Simplified Chinese',
+            'id':unit.id,'error':'quota','retry_after':3600}))
+        window.poll();self.assertGreater(window.live_cooldown_until,time.monotonic()+3500)
+
+    def test_old_task_completion_cannot_clear_new_task_busy_flag(self):
+        window=self.window();window.busy=True;window.draft_task_id=2
+        window.events.put(('draft_done',{'session':'one','source':'English','target':'Simplified Chinese','task':1}))
+        window.poll();self.assertTrue(window.busy);window.publish_live.assert_not_called()
+
+    def test_cancelled_old_session_task_releases_busy_without_publishing_into_new_session(self):
+        window=self.window();window.busy=True;window.draft_task_id=1;window.live_session='new'
+        window.events.put(('draft_done',{'session':'old','source':'English','target':'Simplified Chinese','task':1}))
+        window.poll();self.assertFalse(window.busy);window.publish_live.assert_not_called()
+
+    def test_old_task_errors_and_cache_warnings_do_not_replace_current_status(self):
+        window=self.window();window.draft_task_id=2
+        for kind in ['draft_error','draft_warning']:
+            window.events.put((kind,{'session':'one','source':'English','target':'Simplified Chinese','task':1,'error':'stale'}))
+        window.poll();window.status.set.assert_not_called()
+
+    def test_game_stop_cancels_only_live_worker(self):
+        for live in [False,True]:
+            with self.subTest(live=live):
+                window=self.window();window.live_worker=live;window.bridge.status=lambda:{'active':False}
+                window.poll_live();self.assertEqual(window.cancel.is_set(),live);window.start_drafts.assert_not_called()
+
+    def test_mismatched_request_language_pair_cannot_change_or_translate_project(self):
+        window=self.window();before=window.project
+        window.bridge=SimpleNamespace(status=lambda:None,read_request=lambda:(Report('isolated'),True,'new-request'),
+            source_language='English',target_language='French',session_id='new-session')
+        window.poll_live();self.assertIs(window.project,before);window.start_drafts.assert_not_called();window.publish_live.assert_not_called()
+        self.assertIn('语言对不同',window.status.set.call_args.args[0])
 
     def test_diagnostics_are_bounded_and_store_failure_after_later_success(self):
         with tempfile.TemporaryDirectory() as directory:

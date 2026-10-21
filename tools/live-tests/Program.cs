@@ -172,10 +172,12 @@ commands.abyss_stop();Tick(3);assert(json.parse(disk[root..'/Live/status.json'])
 """);
 Check("Chinese excluded and rich tooltip prioritized during pending request", "", """
 FlushTimers();commands.abyss_translate();FlushTimers()
-local first=RequestData().request_id
+local initial=RequestData();local first=initial.request_id
 local chinese={text='已经汉化 English'};patches['abysstext.draw.1'](nil,chinese)
 local p={toolTip='‖color:1,2,3‖Spineling Head‖color:end‖\nA hollow head.'}
 patches['abysstext.tooltip'](nil,p);Tick(3)
+assert(RequestData().request_id==first and writes==1)
+Response(first,'accepted',false,{});Tick(3)
 local request=RequestData();assert(request.request_id~=first)
 local texts={};for _,record in ipairs(request.records) do texts[record.text]=true;assert(record.priority==0) end
 assert(texts['Spineling Head'] and texts['A hollow head.'] and not texts['已经汉化 English'])
@@ -222,5 +224,34 @@ assert(control.Text=='打开舱门');commands.abyss_stop();assert(control.Text==
 commands.abyss_translate();FlushTimers();request=RequestData()
 Response(request.request_id,'same-cache',true,{['Open hatch']='打开舱门'});Tick(2)
 assert(control.Text=='打开舱门')
+""");
+Check("matching request with wrong session or target cannot acknowledge or apply", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+for _,field in ipairs({'session_id','source_language','target_language'}) do
+ local response={protocol=1,request_id=request.request_id,revision=field,complete=true,
+  session_id=request.session_id,source_language=request.source_language,target_language=request.target_language,
+  translations={['Open hatch']='错误'}}
+ response[field]='wrong'
+ disk[root..'/Live/response.json']=json.serialize(response);Tick(1)
+ assert(control.Text=='Open hatch')
+end
+patches['abysstext.tooltip'](nil,{toolTip='Visible next'});Tick(3)
+assert(writes==1)
+Response(request.request_id,'correct',false,{});Tick(3);assert(writes==2)
+""");
+Check("stopped generation cannot submit a later restart early", "", """
+FlushTimers();commands.abyss_translate();commands.abyss_stop();commands.abyss_translate()
+local pendingTimers=timers;timers={}
+assert(#pendingTimers==2)
+pendingTimers[1]();assert(writes==0)
+pendingTimers[2]();assert(writes==1)
+""");
+Check("case insensitive source aliases still skip existing Chinese", """
+control.Text='已有汉化 English'
+disk[root..'/Live/settings.json']=json.serialize({source_language='en',target_language='zh-cn'})
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+assert(request.source_language=='English' and request.target_language=='Simplified Chinese')
+for _,r in ipairs(request.records) do assert(r.text~='已有汉化 English') end
 """);
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

@@ -1,0 +1,54 @@
+name: AbyssText Windows candidate
+on:
+  push:
+    branches: [codex/abysstext-workbench]
+    paths-ignore:
+      - 'research/handoffs/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: abysstext-candidate-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Python regression suite
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/evidence | Out-Null
+          python -m unittest discover -s tests -v 2>&1 | Tee-Object artifacts/evidence/python-tests.txt
+          if ($LASTEXITCODE) { throw 'Python regressions failed' }
+      - name: Build frozen Windows candidate
+        shell: pwsh
+        run: ./build-windows.ps1
+      - name: Verify version and actual isolated EXE
+        shell: pwsh
+        run: |
+          $v = (Get-Item dist/BarotraumaTextExtractor.exe).VersionInfo
+          $expected = python -c 'from extractor import VERSION; print(VERSION)'
+          if ($v.ProductVersion -ne $expected -or $v.FileVersion -ne $expected) { throw 'EXE version mismatch' }
+          $v | Format-List FileVersion,ProductVersion | Out-File artifacts/evidence/windows-version.txt
+          python tools/check_windows_candidate.py
+          if ($LASTEXITCODE) { throw 'Frozen EXE validation failed; inspect evidence' }
+      - name: Package candidate and SHA256
+        if: ${{ !cancelled() && hashFiles('dist/BarotraumaTextExtractor.exe') != '' }}
+        shell: pwsh
+        run: |
+          python tools/package_preview.py
+          if ($LASTEXITCODE) { throw 'Candidate packaging failed' }
+      - name: Upload private candidate and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AbyssText-rc4-Windows-candidate
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14

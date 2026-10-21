@@ -23,6 +23,8 @@ class LiveBridge:
         self.data.mkdir(exist_ok=True)
         self.seen = ""
         self.session_id = ""
+        self.source_language = "English"
+        self.target_language = "Simplified Chinese"
 
     def configure(self, ui_language, source_language, target_language):
         path=self.data/"settings.json"
@@ -47,9 +49,11 @@ class LiveBridge:
         if digest==self.seen: return None
         data = json.loads(raw)
         if not isinstance(data,dict) or data.get("protocol")!=1 or not isinstance(data.get("records"),list): raise ValueError("不支持的桥接协议")
-        if len(data["records"])>10000: raise ValueError("单次游戏内请求超过 10000 条")
+        if len(data["records"])>8: raise ValueError("单次游戏内请求最多 8 条；请使用配套版本插件")
         report = Report(str(self.root))
-        if not isinstance(data.get("source_language","English"),str) or not isinstance(data.get("request_id",""),str):raise ValueError("无效的游戏内请求元数据")
+        if any(not isinstance(data.get(k,default),str) or len(data.get(k,default))>256 for k,default in
+               [('source_language','English'),('target_language','Simplified Chinese'),('request_id',''),('session_id','')]):
+            raise ValueError("无效的游戏内请求元数据")
         for index,record in enumerate(data["records"]):
             if not isinstance(record,dict):raise ValueError("无效的游戏内文字记录")
             text, key = record.get("text"), record.get("key","")
@@ -63,6 +67,8 @@ class LiveBridge:
                 evidence="LuaCs 客户端采集；动态文字只代表此次观察值",location={"native_key":key,"live_priority":priority}))
         self.seen = digest
         self.session_id=str(data.get('session_id',''))
+        self.source_language=canonical_language(data.get('source_language','English'))
+        self.target_language=canonical_language(data.get('target_language','Simplified Chinese'))
         return report, bool(data.get("translate")), data.get("request_id",digest)
 
     def publish(self, project, request_id, drafts=False, complete=True, progress=None):
@@ -83,6 +89,7 @@ class LiveBridge:
             atomic_write(self.data/"Translations.xml",content)
             self.written_language_revision=language_revision
         atomic_write(self.data/"response.json",json.dumps({"protocol":1,"request_id":request_id,
+            "session_id":self.session_id,"source_language":project.source_language,"target_language":project.target_language,
             "revision":hashlib.sha256((content+json.dumps(literals,ensure_ascii=False)).encode()).hexdigest(),
             "translations":literals,"keys":count,"drafts":drafts,"complete":complete,
             "language_revision":language_revision,"progress":progress or {}},ensure_ascii=False))

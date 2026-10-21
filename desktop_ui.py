@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from extractor import Entry, Report, VERSION, scan
 from live_bridge import LiveBridge
-from languages import NAMES, already_target_chinese
+from languages import NAMES, already_target_chinese, canonical_language
 from translation_api import Settings, batches, translate, game_auto_allowed
 from free_online import PROVIDER as FREE_ONLINE, TranslationCache
 from online_worker import run_online
@@ -80,6 +80,8 @@ class WorkbenchWindow:
         self.pending_edit = None
         self.pending_save = None
         self.task_error = ""
+        self.draft_task_id = 0
+        self.live_worker = False
         self.loading_editor = False
         self.bridge = None
         self.live_request = ""
@@ -652,7 +654,7 @@ class WorkbenchWindow:
             self.save_preferences()
         ttk.Button(frame,text="保存设置（不发送请求）",style="Accent.TButton",command=save).pack(anchor="e")
 
-    def start_drafts(self,selected=False,units=None):
+    def start_drafts(self,selected=False,units=None,live=False):
         if self.busy or not self.ensure_project():return
         self.commit_editor()
         if self.project.source_language==self.project.target_language:
@@ -671,7 +673,10 @@ class WorkbenchWindow:
             self.reload_current_editor()
             if self.bridge and self.live_request:self.publish_live()
             return
-        self.cancel.clear();self.set_busy(True)
+        self.cancel=threading.Event();self.set_busy(True)
+        task_cancel=self.cancel
+        self.draft_task_id=getattr(self,'draft_task_id',0)+1
+        self.live_worker=live
         self.task_error=""
         destination="MyMemory 免费联网翻译" if self.canon(self.provider.get())==FREE_ONLINE else self.api.endpoint
         self.status.set(f"发送 {len(units)} 条去重原文到 {destination}；生成后仍需校对。")
@@ -681,7 +686,7 @@ class WorkbenchWindow:
         target_language=self.project.target_language
         task_session=self.live_session
         source_language=self.project.source_language
-        scope={'session':task_session,'source':source_language,'target':target_language}
+        scope={'session':task_session,'source':source_language,'target':target_language,'task':self.draft_task_id}
         # Only send relevant glossary, bounded independently of import size.
         sources="\n".join(u.source for u in units)
         glossary={k:v for k,v in self.project.glossary.items() if k in sources}
@@ -689,21 +694,22 @@ class WorkbenchWindow:
         def worker():
             try:
                 if provider==FREE_ONLINE:
-                    run_online(snapshots,target_language,self.online_cache,self.cancel.is_set,
+                    run_online(snapshots,target_language,self.online_cache,task_cancel.is_set,
                         lambda result:self.events.put(('drafts_scoped',{**scope,'result':result})),
                         lambda unit,error:self.events.put(('draft_failure',{**scope,'id':unit.id,
-                            'error':safe_error(error),'retry_after':getattr(error,'retry_after',0)})))
+                            'error':safe_error(error),'retry_after':getattr(error,'retry_after',0)})),
+                        lambda message:self.events.put(('draft_warning',{**scope,'error':message})))
                     return
                 for group in batches(snapshots):
-                    if self.cancel.is_set():break
+                    if task_cancel.is_set():break
                     result=translate(settings,group,glossary,target_language=target_language)
-                    if self.cancel.is_set():break
+                    if task_cancel.is_set():break
                     self.events.put(("drafts_scoped",{**scope,'result':result}))
-            except Exception as error:self.events.put(("error",str(error)))
+            except Exception as error:self.events.put(("draft_error",{**scope,'error':safe_error(error)}))
             finally:
                 try:self.online_cache.flush()
-                except (OSError,ValueError) as error:self.events.put(("error",str(error)))
-                self.events.put(("draft_done",None))
+                except (OSError,ValueError):self.events.put(("draft_warning",{**scope,'error':'本地缓存暂未保存；成功译文已保留。'}))
+                self.events.put(("draft_done",scope))
         threading.Thread(target=worker,daemon=True).start()
 
     def reload_current_editor(self):
@@ -768,6 +774,10 @@ class WorkbenchWindow:
         if not path:return
         try:
             self.bridge=LiveBridge(path)
+            self.cancel.set()
+            self.live_request=self.live_session=''
+            self.live_generate=False
+            self.live_attempted.clear();self.live_failures.clear();self.live_cooldown_until=0
             self.write_live_preferences()
         except (OSError,ValueError) as error:return self.error(error)
         self.mode_label.set("游戏桥接已连接 · 本地文件交换")
@@ -793,6 +803,9 @@ class WorkbenchWindow:
             if self.bridge:
                 status=self.bridge.status()
                 if status:
+                    if not status.get('active'):
+                        if getattr(self,'live_worker',False):self.cancel.set()
+                        self.live_generate=False
                     running="试译运行中" if status.get('active') else "试译已停止"
                     self.mode_label.set(f"{running} · 已采集 {status.get('submitted_records',0)} · 已译 {status.get('translated_records',0)}")
                     if self.live_failures:
@@ -801,7 +814,15 @@ class WorkbenchWindow:
             if self.bridge:
                 request=self.bridge.read_request()
                 if request:
-                    report,generate,self.live_request=request
+                    report,generate,request_id=request
+                    requested_pair=(self.bridge.source_language,self.bridge.target_language)
+                    source_choice=self.source_language.get()
+                    expected_source=requested_pair[0] if source_choice=='Auto' else canonical_language(source_choice)
+                    if requested_pair!=(expected_source,canonical_language(self.target_language.get())):
+                        self.live_generate=False
+                        self.status.set('游戏与桌面语言对不同；请在游戏停止试译，再重新开启。')
+                        return
+                    self.live_request=request_id
                     session=self.bridge.session_id
                     changed_session=session!=self.live_session
                     if changed_session:
@@ -844,7 +865,7 @@ class WorkbenchWindow:
                         units.sort(key=lambda u:min(e.location.get('live_priority',2) for e in u.occurrences if e.file=="<游戏内>"))
                         batch=units[:4]
                         self.live_attempted.update(u.id for u in batch)
-                        if batch:self.start_drafts(units=batch)
+                        if batch:self.start_drafts(units=batch,live=True)
                         else:self.publish_live()
         except (OSError,ValueError,KeyError,TypeError) as error:self.status.set("游戏桥接："+str(error))
         finally:self.root.after(1500,self.poll_live)
@@ -853,15 +874,23 @@ class WorkbenchWindow:
         try:
             while True:
                 kind,value=self.events.get_nowait()
-                if kind in {'drafts_scoped','draft_failure'}:
+                if kind in {'drafts_scoped','draft_failure','draft_warning','draft_error'}:
                     if not self.project or (value['session'],value['source'],value['target'])!=(self.live_session,self.project.source_language,self.project.target_language):continue
+                    if value.get('task',getattr(self,'draft_task_id',0))!=getattr(self,'draft_task_id',0):continue
+                    if kind in {'draft_warning','draft_error'}:
+                        self.status.set(value['error'])
+                        self.diagnostics.record('cache-warning' if kind=='draft_warning' else 'task-error','',error=value['error'])
+                        if kind=='draft_error':self.task_error=value['error']
+                        continue
                     if kind=='drafts_scoped':kind,value='drafts',value['result']
                     else:
                         uid=value['id'];attempts=self.live_failures.get(uid,{}).get('attempts',0)+1
                         self.live_failures[uid]={'error':value['error'],'attempts':attempts,
                             'retry_at':time.monotonic()+value['retry_after'] if value['retry_after'] and attempts<2 else 0}
                         self.task_error=value['error']
-                        if value['retry_after']:self.live_cooldown_until=max(self.live_cooldown_until,time.monotonic()+value['retry_after'])
+                        # A transient record failure cools down that record;
+                        # quota/rate limits cool down the provider as a whole.
+                        if value['retry_after']>=3600:self.live_cooldown_until=max(self.live_cooldown_until,time.monotonic()+value['retry_after'])
                         self.diagnostics.record('failed',uid,error=value['error'],attempts=attempts)
                         self.status.set('单条翻译失败，其他条目继续：'+value['error'])
                         continue
@@ -878,8 +907,14 @@ class WorkbenchWindow:
                     self.install_project(value)
                 elif kind=="error":self.task_error=value;self.status.set("任务失败："+value)
                 elif kind in {"done","draft_done"}:
+                    if kind=='draft_done' and value is not None:
+                        if value.get('task')!=getattr(self,'draft_task_id',0):continue
+                        if not self.project or (value['session'],value['source'],value['target'])!=(self.live_session,self.project.source_language,self.project.target_language):
+                            self.set_busy(False);self.live_worker=False
+                            continue
                     self.set_busy(False)
                     if kind=="draft_done":
+                        self.live_worker=False
                         self.reload_current_editor();self.refresh(reset_page=False);self.update_summary()
                         if self.bridge and self.live_request:self.publish_live(complete=False)
                     if self.task_error:self.status.set("任务未全部完成："+self.task_error)

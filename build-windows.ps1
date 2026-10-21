@@ -11,7 +11,7 @@ if (!(Test-Path -LiteralPath '.\.venv\Scripts\python.exe')) {
 if ($LASTEXITCODE) { throw "Existing build environment needs Python 3.12+" }
 & .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
 if ($LASTEXITCODE) { throw "Build dependencies failed" }
-$tlsPolicyPath = & .\.venv\Scripts\python.exe -c "import pathlib,ssl; p=pathlib.Path(ssl.__file__).with_name('codex-rejected-cas.pem'); print(str(p) if p.is_file() else '')"
+$tlsPolicyPath = & .\.venv\Scripts\python.exe tls_resources.py
 if ($LASTEXITCODE) { throw "TLS runtime resource detection failed" }
 $tlsDataArgs = @()
 if ($tlsPolicyPath) { $tlsDataArgs = @('--add-data', "$tlsPolicyPath;.") }

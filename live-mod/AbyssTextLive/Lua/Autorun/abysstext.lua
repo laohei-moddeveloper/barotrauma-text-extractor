@@ -8,6 +8,7 @@ local active, pending, dirty = false, false, false
 local nextPoll, nextSend, serial, nextSettings = 0, 0, 0, 0
 local requestId, revision = "", ""
 local sessionId = ""
+local accepted, generation = false, 0
 local languageRevision, hadLanguageKeys = "", false
 local applyQueue, applyIndex, responseRaw = {}, 1, ""
 local translations, translatedValues, queued, sent, controls, originals = {}, {}, {}, {}, {}, {}
@@ -56,6 +57,16 @@ local function ReadSettings()
         sourceLanguage = settings.source_language or "English"
         if sourceLanguage == "Auto" then sourceLanguage = tostring(TextManager.DefaultLanguage) end
         targetLanguage = settings.target_language or "Simplified Chinese"
+        local function Canonical(name)
+            local lower=tostring(name):lower()
+            local aliases={en="English",["zh-cn"]="Simplified Chinese",["zh-tw"]="Traditional Chinese"}
+            if aliases[lower] then return aliases[lower] end
+            for _, language in ipairs({"English","Simplified Chinese","Traditional Chinese","Japanese","Korean","Russian","German","French","Spanish","Brazilian Portuguese","Polish","Ukrainian","Turkish","Italian","Czech","Hungarian","Romanian"}) do
+                if language:lower()==lower then return language end
+            end
+            return tostring(name)
+        end
+        sourceLanguage,targetLanguage=Canonical(sourceLanguage),Canonical(targetLanguage)
     end
     UpdateButton()
 end
@@ -216,6 +227,7 @@ end
 local function ReportStatus()
     pcall(function()
         File.Write(live.."status.json",json.serialize({protocol=1,active=active,preloading=preload~=nil,
+            session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
             tracked_controls=controlCount,last_error=lastError}))
     end)
@@ -274,6 +286,10 @@ local function ApplyControlBatch()
 end
 local function SendRequest()
     if not active or not dirty then return end
+    -- Do not overwrite the single mailbox until the desktop has imported its
+    -- records. A partial matching response acknowledges import, so visible
+    -- tooltips can still take priority over accepted background work.
+    if pending and not accepted then return end
     local records = {}
     local candidates = {}
     for identity, record in pairs(queued) do
@@ -292,17 +308,22 @@ local function SendRequest()
         queuedBytes=queuedBytes-#queued[identity].text-#queued[identity].key
         queued[identity]=nil;queuedCount=queuedCount-1
     end
-    dirty,pending=queuedCount>0,true
+    dirty,pending,accepted=queuedCount>0,true,false
     print("[AbyssTextLive] " .. Ui("已请求试译；请保持桌面工作台运行。条数：", "Translation requested. Keep the desktop workbench running. Records: ") .. #records)
 end
 local function Begin()
     if active then return end
+    warned,lastError={},""
     local configured, err = pcall(ReadSettings)
     if not configured then Warn("settings", Ui("无法读取语言设置：", "Cannot read language settings: ") .. tostring(err)) end
     if sourceLanguage == targetLanguage then Warn("same", Ui("源语言与目标语言相同，请在桌面切换。", "Source and target languages match. Change them in the desktop workbench.")) return end
     active, pending = true, false
+    generation=generation+1
+    local ownGeneration=generation
+    accepted=false
+    nextPoll,nextSend=0,0
     responseRaw,revision="",""
-    sessionId=tostring(Timer.GetTime())..".session."..tostring(serial+1)
+    sessionId=tostring(Timer.GetTime())..".session."..tostring(generation).."."..tostring(serial+1)
     if not installed then InstallPatches() end
     UpdateButton()
     preload=coroutine.create(function()
@@ -313,6 +334,7 @@ local function Begin()
     ResumePreload()
     -- Let one native frame render; no synchronous translation in the draw loop.
     Timer.Wait(function()
+        if not active or generation~=ownGeneration then return end
         local scanned = 0
         local function Walk(component)
             if scanned >= 3000 then return end
@@ -330,6 +352,8 @@ local function Begin()
 end
 local function Stop()
     active, pending, dirty = false, false, false
+    generation=generation+1
+    accepted=false
     preload=nil
     applyQueue,applyIndex,responseRaw={},1,""
     languageRevision,hadLanguageKeys,revision="",false,""
@@ -446,7 +470,11 @@ Hook.Add("think", "abysstext.live", function()
                 local raw=File.Read(live .. "response.json")
                 if raw==responseRaw then return end
                 local response = json.parse(raw)
-                if response.protocol == 1 and response.request_id == requestId then
+                if response.protocol == 1 and response.request_id == requestId
+                    and (response.session_id==nil or response.session_id==sessionId)
+                    and (response.source_language==nil or response.source_language==sourceLanguage)
+                    and (response.target_language==nil or response.target_language==targetLanguage) then
+                    accepted=true
                     responseRaw=raw
                     if response.revision ~= revision then
                         revision = response.revision

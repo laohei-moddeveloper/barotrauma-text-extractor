@@ -2,7 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-def run_online(units, target, cache, cancelled, success, failure):
+def run_online(units, target, cache, cancelled, success, failure, warning=lambda message:None):
     with ThreadPoolExecutor(max_workers=2, thread_name_prefix='AbyssText-online') as pool:
         for start in range(0, len(units), 4):
             if cancelled(): break
@@ -19,4 +19,7 @@ def run_online(units, target, cache, cancelled, success, failure):
                     failure(unit, error)
                 else:
                     if not cancelled(): success(result)
-            cache.flush()
+            try:
+                cache.flush()
+            except (OSError,ValueError):
+                warning('本地缓存暂未保存；成功译文已保留，后续条目继续处理。')

@@ -302,6 +302,25 @@ class LiveBridgeTests(unittest.TestCase):
         self.assertEqual(response["translations"]["Open hatch"],"打开舱门")
         ET.parse(self.root/"Live/Translations.xml")
 
+    def test_mailbox_rejects_oversize_batch_and_bad_metadata_without_accepting(self):
+        path=self.root/'Live/requests.json'
+        for data in [dict(records=[{'text':'Tool'}]*9),dict(records=[],session_id=[]),dict(records=[],target_language='x'*257)]:
+            path.write_text(json.dumps({'protocol':1,**data}))
+            with self.assertRaises(ValueError):self.bridge.read_request()
+            self.assertEqual(self.bridge.seen,'')
+        self.assertIsNotNone(self.request())
+
+    def test_reply_retains_canonical_pair_and_session_for_client_validation(self):
+        path=self.root/'Live/requests.json'
+        path.write_text(json.dumps({'protocol':1,'session_id':'current','request_id':'one',
+            'source_language':'en','target_language':'zh-cn','records':[{'text':'Tool'}]}))
+        report,_,request=self.bridge.read_request()
+        project=Project(report,source_language='English',target_language='Simplified Chinese')
+        self.bridge.publish(project,request)
+        response=json.loads((self.root/'Live/response.json').read_text())
+        self.assertEqual((response['session_id'],response['source_language'],response['target_language']),
+            ('current','English','Simplified Chinese'))
+
     def test_bad_format_never_sent_to_game(self):
         report,_,request_id=self.request();project=Project(report)
         u=next(u for u in project.units if u.keys)

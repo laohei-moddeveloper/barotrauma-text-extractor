@@ -11,6 +11,7 @@ import hashlib
 import os
 from pathlib import Path
 import threading
+import ssl
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -58,12 +59,17 @@ class TranslationCache:
         return hashlib.sha256(json.dumps([unit.source_language,target,unit.source],ensure_ascii=False).encode()).hexdigest()
 
     def translate(self,unit,target,opener=urlopen,cancelled=lambda:False):
+        if cancelled():raise ValueError('翻译已取消；当前条目未写入。')
         key=self.key(unit,target)
         with self.lock:cached=self.rows.get(key)
+        if cached is not None and not quality(unit.source,cached):
+            return {unit.id:{'translation':cached,'issues':[]}}
         if cached is not None:
-            return {unit.id:{'translation':cached,'issues':quality(unit.source,cached)}}
+            with self.lock:
+                removed=self.rows.pop(key,None)
+                if removed is not None:self.bytes-=self.entry_bytes(key,removed);self.dirty=True
         result=translate_unit(unit,target,opener,cancelled)
-        if not result[unit.id]['issues']:
+        if not cancelled() and not result[unit.id]['issues']:
             with self.lock:
                 previous=self.rows.get(key)
                 if previous is not None:self.bytes-=self.entry_bytes(key,previous)
@@ -120,21 +126,32 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
                     raw = response.read(1024*1024+1)
                 if len(raw)>1024*1024: raise ValueError("联网翻译响应过大。")
                 data = json.loads(raw)
-                if data.get("quotaFinished") or str(data.get("responseStatus")) in {"403","429"}:
+                if not isinstance(data,dict):raise ValueError('免费联网翻译响应格式无效；当前条目未写入。')
+                if data.get("quotaFinished") is True or str(data.get("responseStatus")) in {"403","429"}:
                     raise TranslationServiceError("免费联网翻译额度已用尽；已完成译文保留，请稍后继续。不会转用收费服务。",3600)
-                result = data.get("responseData",{}).get("translatedText")
-                if str(data.get("responseStatus")) != "200" or not isinstance(result,str) or not result:
+                body=data.get("responseData")
+                if not isinstance(body,dict):raise ValueError('免费联网翻译响应格式无效；当前条目未写入。')
+                result = body.get("translatedText")
+                if str(data.get("responseStatus")) != "200" or not isinstance(result,str) or not result.strip():
                     raise ValueError("免费联网翻译服务返回错误；已完成译文保留。")
                 translated.append(html.unescape(result))
             except FileNotFoundError:
                 raise TranslationServiceError("Windows 包缺少 HTTPS/TLS 运行资源；尚未发送翻译请求，请更新程序。") from None
+            except ssl.SSLError:
+                raise TranslationServiceError('HTTPS/TLS 证书或握手验证失败；保留证书验证，请检查系统时间和证书环境。') from None
             except HTTPError as error:
                 if error.code in {403,429}:
                     raise TranslationServiceError("免费联网翻译被限流或拒绝；已完成译文保留，一小时后有限重试。",3600) from None
                 raise TranslationServiceError("免费联网翻译 HTTP 错误；已完成译文保留，稍后有限重试。",30) from None
-            except (URLError,TimeoutError,OSError):
+            except URLError as error:
+                if isinstance(error.reason,FileNotFoundError):
+                    raise TranslationServiceError('Windows 包缺少 HTTPS/TLS 运行资源；请更新程序。') from None
+                if isinstance(error.reason,ssl.SSLError):
+                    raise TranslationServiceError('HTTPS/TLS 证书或握手验证失败；保留证书验证，请检查系统时间和证书环境。') from None
                 raise TranslationServiceError("免费联网翻译暂不可用或超时；已完成译文保留，稍后有限重试。",30) from None
-            except (KeyError,TypeError,json.JSONDecodeError):
+            except (TimeoutError,OSError):
+                raise TranslationServiceError("免费联网翻译暂不可用或超时；已完成译文保留，稍后有限重试。",30) from None
+            except (KeyError,TypeError,json.JSONDecodeError,UnicodeDecodeError):
                 raise ValueError("免费联网翻译响应格式无效；当前条目未写入。") from None
         output.append(leading+"".join(translated)+trailing)
     result = "".join(output)

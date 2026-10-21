@@ -27,7 +27,8 @@ def game_auto_allowed(endpoint, offline=False, allow_online=False):
     return address.hostname in {"127.0.0.1", "localhost", "::1"} or allow_online
 
 
-def batches(units, max_chars=10000, max_items=24):
+def batches(units, max_chars=10000, max_items=8):
+    max_items=max(1,min(8,max_items))
     batch, size = [], 0
     for unit in units:
         if batch and (len(batch) >= max_items or size + len(unit.source) > max_chars):

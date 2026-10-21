@@ -2,6 +2,8 @@
 
 [English](README_EN.md) · [既有创意工坊条目](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)
 
+[rc4 候选版安装、修复和覆盖边界](docs/INSTALL-rc4.zh-CN.md)。本机仍需用户手动更新；云端没有替换本机程序。
+
 0.2 开发预览：独立桌面工作台 + 可选的 LuaCs 客户端实时试译插件。Windows 候选包已构建；游戏验收由用户手动完成，尚未宣称通过。源码运行需要 Python 3.12+ 和 Tkinter，运行依赖只有标准库。
 
 ```console
@@ -21,7 +23,7 @@ python app.py
 
 ## 游戏内试译（实验功能）
 
-桌面“连接游戏”可安装自带 `AbyssTextLive` 到你选择的 LocalMods 新目录，也可连接已安装目录。需要 **LuaCs 客户端**，并在游戏中启用插件。工作台选择源/目标语言与离线或本机模型，保持运行；游戏点“译潜 · 一键试译 / AbyssText · Translate”。
+桌面“连接游戏”可安装自带 `AbyssTextLive` 到你选择的 LocalMods 新目录，也可连接已安装目录。需要 **LuaCs 客户端**，并在游戏中启用插件。工作台选择源/目标语言和默认免配置联网翻译，保持运行；游戏点“译潜 · 一键试译 / AbyssText · Translate”。
 
 客户端采集语言键、原生 GUI 文本和部分原生字体绘制字符串，通过插件自己的 `Live/requests.json` 交给桌面翻译；结果更新插件自己的 `Live/Translations.xml`、原控件或原字体调用参数。**不增加翻译字幕层，不改其他模组源码或游戏逻辑。** 默认游戏请求直接使用内置免费联网服务，无需填写配置；需保持桌面工作台运行。再次点击可停止并恢复本插件替换的控件文字、卸载本插件语言资源。F3 命令：`abyss_translate`、`abyss_stop`、`abyss_apply`。
 

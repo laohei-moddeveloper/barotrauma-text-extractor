@@ -1,3 +1,5 @@
+[rc4 candidate installation and limits (Chinese)](docs/INSTALL-rc4.zh-CN.md). No local installation was changed by cloud validation.
+
 # AbyssText · Barotrauma localization workbench
 
 [中文](README.md)

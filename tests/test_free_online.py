@@ -2,12 +2,13 @@ import io
 import json
 import unittest
 import tempfile
+import ssl
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from free_online import translate_unit, TranslationCache
 from free_online import TranslationServiceError
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 
 class FreeOnlineTests(unittest.TestCase):
@@ -64,6 +65,38 @@ class FreeOnlineTests(unittest.TestCase):
         with self.assertRaisesRegex(TranslationServiceError,'TLS') as failure:
             translate_unit(self.unit('Warning'),'Simplified Chinese',opener)
         self.assertEqual(failure.exception.retry_after,0)
+
+    def test_tls_verification_failure_is_not_retried_as_a_timeout(self):
+        for error in [ssl.SSLCertVerificationError('bad certificate'),URLError(ssl.SSLCertVerificationError('bad certificate')),
+                      URLError(FileNotFoundError('policy resource'))]:
+            with self.subTest(error=type(error).__name__):
+                def opener(*args,**kwargs):raise error
+                with self.assertRaisesRegex(TranslationServiceError,'TLS') as failure:
+                    translate_unit(self.unit('Warning'),'Simplified Chinese',opener)
+                self.assertEqual(failure.exception.retry_after,0)
+
+    def test_malformed_response_shapes_are_controlled_record_errors(self):
+        for payload in [[],None,{'responseStatus':200,'responseData':[]},
+                        {'responseStatus':200,'responseData':{'translatedText':'  '}},
+                        {'responseStatus':200,'responseData':{'translatedText':123}}]:
+            with self.subTest(payload=payload):
+                with self.assertRaisesRegex(ValueError,'响应格式|服务返回错误'):
+                    translate_unit(self.unit('Warning'),'Simplified Chinese',lambda *a,**k:io.BytesIO(json.dumps(payload).encode()))
+
+    def test_invalid_cached_translation_is_evicted_and_retranslated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache=TranslationCache(Path(directory)/'cache.json');unit=self.unit('Warning [name]')
+            key=cache.key(unit,'Simplified Chinese');cache.rows[key]='错误';cache.bytes=cache.entry_bytes(key,'错误')
+            def opener(*a,**k):return io.BytesIO(b'{"responseStatus":200,"responseData":{"translatedText":"Alert"}}')
+            result=cache.translate(unit,'Simplified Chinese',opener)[unit.id]
+            self.assertEqual(result['translation'],'Alert [name]');self.assertFalse(result['issues'])
+            self.assertEqual(cache.rows[key],'Alert [name]')
+
+    def test_cancelled_cache_hit_cannot_bypass_cancellation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache=TranslationCache(Path(directory)/'cache.json');unit=self.unit('Warning')
+            cache.rows[cache.key(unit,'Simplified Chinese')]='警告'
+            with self.assertRaisesRegex(ValueError,'取消'):cache.translate(unit,'Simplified Chinese',cancelled=lambda:True)
 
     def test_cancellation_never_sends(self):
         def opener(*args,**kwargs):raise AssertionError('unexpected network')

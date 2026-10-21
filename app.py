@@ -20,12 +20,11 @@ def main():
     parser.add_argument("--check-online",type=Path,metavar='NEW_JSON',help="无窗口验证联网翻译，将结果写入新的 JSON 文件")
     args = parser.parse_args()
     if args.check_online:
-        if args.check_online.exists() or args.folder or args.output or args.install_live_mod:
+        if args.check_online.exists() or args.check_online.is_symlink() or args.folder or args.output or args.install_live_mod or args.raw:
             parser.error('--check-online 需要新 JSON 路径，不能与扫描/安装参数组合')
         import json,time
         from types import SimpleNamespace
         from free_online import translate_unit
-        from workbench import atomic_write
         start=time.monotonic()
         try:
             result=translate_unit(SimpleNamespace(id='network-check',source='Open hatch',source_language='English'),'Simplified Chinese')['network-check']
@@ -33,7 +32,14 @@ def main():
         except Exception as error:
             report={'ok':False,'error':str(error)}
         report['elapsed_seconds']=round(time.monotonic()-start,3)
-        atomic_write(args.check_online,json.dumps(report,ensure_ascii=False))
+        # Exclusive creation honors the NEW_JSON contract even if another
+        # process creates the path while the network request is in progress.
+        try:
+            args.check_online.parent.mkdir(parents=True,exist_ok=True)
+            with args.check_online.open('x',encoding='utf-8') as output:
+                json.dump(report,output,ensure_ascii=False)
+        except OSError as error:
+            parser.exit(1,'无法创建新的联网检查报告：'+str(error)+'\n')
         if not report['ok']:parser.exit(1)
         return
     if args.install_live_mod:
