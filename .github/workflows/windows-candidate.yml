@@ -44,6 +44,8 @@ jobs:
         run: |
           python tools/package_preview.py
           if ($LASTEXITCODE) { throw 'Candidate packaging failed' }
+          python tools/verify_candidate_packages.py
+          if ($LASTEXITCODE) { throw 'Candidate package consistency audit failed' }
       - name: Upload private candidate and verification evidence
         if: always()
         uses: actions/upload-artifact@v4
