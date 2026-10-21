@@ -44,11 +44,13 @@ def audit():
         files={n for n in archive.namelist() if not n.endswith('/')}
         assert files=={'AbyssText-source/'+n for n in tracked}
         for name in tracked:
-            expected=subprocess.check_output(['git','show','HEAD:'+name],cwd=ROOT)
+            # Git archive applies repository checkout attributes (including CRLF
+            # for BAT and Windows text=auto); compare using those same filters.
+            expected=subprocess.check_output(['git','cat-file','--filters','HEAD:'+name],cwd=ROOT)
             assert archive.read('AbyssText-source/'+name)==expected,name
     result={'version':VERSION,'source_commit':commit,'passed':True,'zip_sha256':hashes,
         'exe_sha256':receipt['exe_sha256'],'frozen_online':online,
-        'source_all_tracked_files_match_commit':True,'plugin_clean_payload_matches_checkout':True,
+        'source_all_tracked_files_match_commit_with_git_attributes':True,'plugin_clean_payload_matches_checkout':True,
         'windows_exe_matches_tested_exe':True,'game_tested':False}
     (evidence/'package-audit.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     # The fixed-sample receipt contains no user content or credentials. ASCII
