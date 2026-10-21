@@ -1,11 +1,13 @@
 """AbyssText translation workbench. All Tk access stays on the main thread."""
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
 import json
 import os
 from pathlib import Path
 import queue
 import re
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
@@ -14,7 +16,8 @@ from urllib.parse import urlparse
 from extractor import Entry, Report, VERSION, scan
 from live_bridge import LiveBridge
 from languages import NAMES
-from translation_api import Settings, batches, translate
+from translation_api import Settings, batches, translate, game_auto_allowed
+from free_online import PROVIDER as FREE_ONLINE, TranslationCache
 from workbench import Project, STATES, Unit, export_copy, export_csv, export_native, native_xml, source_id
 from ui_i18n import Localizer, canonical, tr
 
@@ -39,6 +42,10 @@ class WorkbenchWindow:
         self.localizer=Localizer(self.root,self.ui_language)
         self.canon=canonical
         self.root.title(f"译潜 AbyssText {VERSION} · 汉化工作台")
+        assets=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))/"assets"
+        if (assets/"abysstext.png").is_file():
+            self.app_icon=tk.PhotoImage(file=str(assets/"abysstext.png"))
+            self.root.iconphoto(True,self.app_icon)
         self.root.geometry("1440x900")
         self.root.minsize(1060, 700)
         self.root.configure(bg=BG)
@@ -47,7 +54,7 @@ class WorkbenchWindow:
         self.project = None
         self.cache = {}
         self.api = Settings(preferences.get("endpoint","http://127.0.0.1:11434/v1"),preferences.get("model","qwen2.5:7b"))
-        self.provider = tk.StringVar(value=preferences.get("provider","离线复用"))
+        self.provider = tk.StringVar(value=preferences.get("provider",FREE_ONLINE))
         self.source_language=tk.StringVar(value="Auto")
         self.target_language=tk.StringVar(value="Simplified Chinese")
         self.folder = tk.StringVar()
@@ -58,7 +65,7 @@ class WorkbenchWindow:
         self.category = "全部文本"
         self.status = tk.StringVar(value="从一个模组开始：打开文件夹、提取、校对、导出。源模组始终只读。")
         self.summary = tk.StringVar(value="0 条原文    /    0 已校对    /    0 个来源")
-        self.mode_label = tk.StringVar(value="桌面工作台 · 离线")
+        self.mode_label = tk.StringVar(value="桌面工作台 · "+self.provider.get())
         self.page_label = tk.StringVar(value="0 / 0")
         self.qa_label = tk.StringVar(value="选择一条原文，开始翻译。")
         self.current_id = None
@@ -75,6 +82,8 @@ class WorkbenchWindow:
         self.bridge = None
         self.live_request = ""
         self.live_drafts = tk.BooleanVar(value=True)
+        self.live_online = tk.BooleanVar(value=False)
+        self.online_cache=TranslationCache()
         self._style()
         self._build()
         for var in [self.status,self.summary,self.mode_label,self.page_label,self.qa_label]:self.localizer.variable(var)
@@ -297,10 +306,23 @@ class WorkbenchWindow:
         workspace.add(right,weight=2)
         self.tabs=ttk.Notebook(right)
         self.tabs.pack(fill="both",expand=True)
-        editor=ttk.Frame(self.tabs,padding=8)
+        editorhost=ttk.Frame(self.tabs)
+        editorcanvas=tk.Canvas(editorhost,bg=CARD,highlightthickness=0)
+        editorscroll=ttk.Scrollbar(editorhost,orient="vertical",command=editorcanvas.yview)
+        editorscroll.pack(side="right",fill="y")
+        editorcanvas.pack(side="left",fill="both",expand=True)
+        editorcanvas.configure(yscrollcommand=editorscroll.set)
+        editor=ttk.Frame(editorcanvas,padding=8)
+        editorwindow=editorcanvas.create_window((0,0),window=editor,anchor="nw")
+        editor.bind("<Configure>",lambda _:editorcanvas.configure(scrollregion=editorcanvas.bbox("all")))
+        def fit_editor(event):
+            # Keep the editor usable at high font DPI; excess height is scrollable.
+            scale=float(self.root.tk.call("tk","scaling"))/(96/72)
+            editorcanvas.itemconfigure(editorwindow,width=event.width,height=max(event.height,int(550*scale)))
+        editorcanvas.bind("<Configure>",fit_editor)
         evidence=ttk.Frame(self.tabs,padding=8)
         xmltab=ttk.Frame(self.tabs,padding=8)
-        self.tabs.add(editor,text="翻译与校对")
+        self.tabs.add(editorhost,text="翻译与校对")
         self.tabs.add(evidence,text="来源与依据")
         self.tabs.add(xmltab,text="汉化 XML")
         ttk.Label(editor,text="原文",style="Muted.TLabel").pack(anchor="w",pady=(8,6))
@@ -599,20 +621,24 @@ class WorkbenchWindow:
 
     def settings_dialog(self):
         dialog=tk.Toplevel(self.root);dialog.title("翻译服务设置");dialog.configure(bg=BG)
-        dialog.geometry("650x510")
+        dialog.geometry("780x650")
         frame=ttk.Frame(dialog,padding=22);frame.pack(fill="both",expand=True)
         ttk.Label(frame,text="选择草稿来源",font=(self.ui_font,16,"bold")).pack(anchor="w")
-        ttk.Label(frame,text="默认离线，不会自动联网或下载模型。AI 仅在生成草稿时发送原文与相关术语。",wraplength=590,style="Muted.TLabel").pack(anchor="w",pady=12)
+        ttk.Label(frame,text="默认免配置联网翻译，点击翻译才发送文字；也可选择离线或自定义 AI，不下载模型。",wraplength=700,style="Muted.TLabel").pack(anchor="w",pady=12)
         mode=tk.StringVar(value=self.provider.get())
-        ttk.Combobox(frame,textvariable=mode,state="readonly",values=["离线复用","本地 / 自定义API"]).pack(fill="x")
+        ttk.Combobox(frame,textvariable=mode,state="readonly",values=[FREE_ONLINE,"离线复用","本地 / 自定义API"]).pack(fill="x")
+        ttk.Label(frame,text="免配置联网翻译无需账号、模型或密钥，使用 MyMemory 免费接口，有日额度限制。下面的 API 字段仅供自定义服务。",wraplength=700,style="Muted.TLabel").pack(anchor="w",pady=6)
         entries=[]
         for label,value,secret in [("兼容 API 地址（本地 Ollama 可用 http://127.0.0.1:11434/v1）",self.api.endpoint,False),("模型（需已安装 / 已可用）",self.api.model,False),("API 密钥（可空，只在当前会话内存中保留）",self.api.key,True)]:
             ttk.Label(frame,text=label,wraplength=590).pack(anchor="w",pady=(14,5))
             field=ttk.Entry(frame,show="•" if secret else "");field.insert(0,value);field.pack(fill="x");entries.append(field)
-        ttk.Label(frame,text="本地模型不产生 API 账单；自选外部服务可能按供应商计费。游戏内自动请求仅允许离线或本机地址。程序不预付、不代购、不自动重试收费请求。",wraplength=590,foreground=GOLD).pack(anchor="w",pady=16)
+        online=tk.BooleanVar(value=self.live_online.get())
+        ttk.Checkbutton(frame,text="允许游戏按钮使用当前在线服务（仅本次桌面会话）",variable=online).pack(anchor="w",pady=(12,0))
+        ttk.Label(frame,text="开启后，游戏按钮会发送采集文字、语境和相关术语到上面的服务。请自行确认服务费用；程序不购买额度、不下载模型、不自动重试。",wraplength=700,foreground=GOLD).pack(anchor="w",pady=16)
         def save():
             self.api=Settings(entries[0].get().strip(),entries[1].get().strip(),entries[2].get())
             self.provider.set(self.canon(mode.get()))
+            self.live_online.set(online.get())
             self.mode_label.set("已连接游戏" if self.bridge else "桌面工作台" + " · " + self.provider.get())
             dialog.destroy()
             self.save_preferences()
@@ -639,9 +665,11 @@ class WorkbenchWindow:
             return
         self.cancel.clear();self.set_busy(True)
         self.task_error=""
-        self.status.set(f"发送 {len(units)} 条去重原文到 {self.api.endpoint}；生成后仍需校对。")
+        destination="MyMemory 免费联网翻译" if self.canon(self.provider.get())==FREE_ONLINE else self.api.endpoint
+        self.status.set(f"发送 {len(units)} 条去重原文到 {destination}；生成后仍需校对。")
         snapshots=[replace(u,occurrences=list(u.occurrences)) for u in units]
         settings=replace(self.api)
+        provider=self.canon(self.provider.get())
         target_language=self.project.target_language
         # Only send relevant glossary, bounded independently of import size.
         sources="\n".join(u.source for u in units)
@@ -649,13 +677,28 @@ class WorkbenchWindow:
         glossary=dict(list(glossary.items())[:128])
         def worker():
             try:
+                if provider==FREE_ONLINE:
+                    # At most two requests in flight and four queued units;
+                    # never create one thread/future per game string.
+                    with ThreadPoolExecutor(max_workers=2,thread_name_prefix='AbyssText-online') as pool:
+                        for start in range(0,len(snapshots),4):
+                            if self.cancel.is_set():break
+                            pending=[pool.submit(self.online_cache.translate,u,target_language,cancelled=self.cancel.is_set) for u in snapshots[start:start+4]]
+                            for future in as_completed(pending):
+                                if self.cancel.is_set():break
+                                self.events.put(("drafts",future.result()))
+                            self.online_cache.flush()
+                    return
                 for group in batches(snapshots):
                     if self.cancel.is_set():break
                     result=translate(settings,group,glossary,target_language=target_language)
                     if self.cancel.is_set():break
                     self.events.put(("drafts",result))
             except Exception as error:self.events.put(("error",str(error)))
-            finally:self.events.put(("draft_done",None))
+            finally:
+                try:self.online_cache.flush()
+                except (OSError,ValueError) as error:self.events.put(("error",str(error)))
+                self.events.put(("draft_done",None))
         threading.Thread(target=worker,daemon=True).start()
 
     def reload_current_editor(self):
@@ -726,7 +769,7 @@ class WorkbenchWindow:
         dialog=tk.Toplevel(self.root);dialog.title("游戏内一键试译");dialog.configure(bg=BG)
         frame=ttk.Frame(dialog,padding=20);frame.pack(fill="both",expand=True)
         ttk.Label(frame,text="游戏内按钮 → 采集源语言文字 → 本地草稿 → 原生文本刷新",font=(self.ui_font,12,"bold"),wraplength=540).pack(anchor="w")
-        ttk.Label(frame,text="保持桌面工作台运行，在游戏中点“译潜 · 一键试译”。使用离线记忆或你已安装的本地 AI。译文写入插件自己的语言文件和原控件文本，不加翻译悬浮层。",wraplength=540,style="Muted.TLabel").pack(anchor="w",pady=12)
+        ttk.Label(frame,text="保持桌面工作台运行，游戏按钮默认直接联网翻译，无需填写配置；译文直接更新原生文字。也可选择离线或自定义 AI。",wraplength=540,style="Muted.TLabel").pack(anchor="w",pady=12)
         ttk.Checkbutton(frame,text="允许游戏内试用未校对草稿（格式有问题的条目会跳过）",variable=self.live_drafts).pack(anchor="w")
         ttk.Button(frame,text="把当前译文应用到游戏",style="Accent.TButton",command=self.publish_live).pack(fill="x",pady=12)
         ttk.Label(frame,text="插件需 LuaCs 客户端。尚未认证真实游戏；重建或缓存的界面可能需重开。可在游戏中停止试译并恢复原文本。",wraplength=540,foreground=GOLD).pack(anchor="w")
@@ -741,6 +784,12 @@ class WorkbenchWindow:
 
     def poll_live(self):
         try:
+            if self.bridge:
+                status=self.bridge.status()
+                if status:
+                    running="试译运行中" if status.get('active') else "试译已停止"
+                    self.mode_label.set(f"{running} · 已采集 {status.get('submitted_records',0)} · 已译 {status.get('translated_records',0)}")
+                    if status.get('last_error') and not self.busy:self.status.set('游戏桥接：'+str(status['last_error']))
             if self.bridge and not self.busy:
                 request=self.bridge.read_request()
                 if request:
@@ -757,10 +806,12 @@ class WorkbenchWindow:
                     if previous:project.path=previous.path
                     project.dirty=True
                     self.install_project(project)
-                    local=urlparse(self.api.endpoint).hostname in {"127.0.0.1","localhost","::1"}
-                    if generate and (self.canon(self.provider.get())=="离线复用" or local):
+                    allowed=self.canon(self.provider.get())==FREE_ONLINE or game_auto_allowed(self.api.endpoint,self.canon(self.provider.get())=="离线复用",self.live_online.get())
+                    if generate and allowed:
                         self.start_drafts(units=[u for u in project.units if any(e.file=="<游戏内>" for e in u.occurrences)])
-                    elif generate:self.status.set("游戏内自动请求只支持离线或本机 AI；外部服务需在桌面手动生成。")
+                    elif generate:
+                        self.status.set("请在翻译设置中开启游戏按钮联网，或使用离线/本机服务。")
+                        self.publish_live()  # Acknowledge so the client can submit later requests.
                     else:self.publish_live()
         except (OSError,ValueError,KeyError,TypeError) as error:self.status.set("游戏桥接："+str(error))
         finally:self.root.after(1500,self.poll_live)
@@ -793,7 +844,7 @@ class WorkbenchWindow:
                     for uid,result in value.items():
                         if uid in self.project.by_id and not self.project.by_id[uid].translation:
                             self.project.update(uid,result["translation"])
-                            self.project.by_id[uid].origin="AI 草稿（未校对）"
+                            self.project.by_id[uid].origin="机器翻译草稿（未校对）"
                             count+=1
                     self.reload_current_editor()
                     if self.bridge and self.live_request:self.publish_live(complete=False)

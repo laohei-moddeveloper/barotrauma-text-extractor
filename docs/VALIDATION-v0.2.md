@@ -1,5 +1,7 @@
 # v0.2 开发验证 / Development validation
 
+Windows 本机后续验收单独记录在 [WINDOWS-v0.2.md](WINDOWS-v0.2.md)；下列 68/12 项为原云端结果，不能与本机结果相加冒充覆盖数。真实游戏后续由用户亲自验收，候选发布尚未宣称通过。
+
 2026-10-21，Linux 云环境。以下仅针对本开发分支，不继承 v0.1 的 Windows 结论。
 
 | 检查 / Check | 结果 / Result |

@@ -8,7 +8,7 @@ function FlushTimers()
     for _, fn in ipairs(pending) do fn() end
 end
 File = {Exists=function(path) return disk[path]~=nil end, Read=function(path) return disk[path] end,
-    Write=function(path,text) disk[path]=text;writes=writes+1 end}
+    Write=function(path,text) disk[path]=text;if path:find('requests.json',1,true) then writes=writes+1 end end}
 Game = {AddCommand=function(name,help,fn) commands[name]=fn end}
 Hook = {HookMethodType={Before=0},
     Add=function(name,id,fn) hooks[name]=fn end,

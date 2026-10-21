@@ -3,6 +3,17 @@ import tkinter as tk
 from tkinter import ttk
 
 CATALOG = {
+    "试译运行中":"Translation running", "试译已停止":"Translation stopped", "已采集 ":"Captured: ", "已译 ":"Translated: ",
+    "默认免配置联网翻译，点击翻译才发送文字；也可选择离线或自定义 AI，不下载模型。":"Online translation needs no setup. Text is sent only when translating. Offline and custom AI options remain available; no models are downloaded.",
+    "保持桌面工作台运行，游戏按钮默认直接联网翻译，无需填写配置；译文直接更新原生文字。也可选择离线或自定义 AI。":"Keep the desktop running. The game button translates online by default, with no setup, and updates native text. Offline or custom AI is also available.",
+    "免配置联网翻译":"Online translation · no setup",
+    "MyMemory 免费联网翻译":"MyMemory free online translation",
+    "机器翻译草稿（未校对）":"Machine translation draft (unreviewed)",
+    "免配置联网翻译无需账号、模型或密钥，使用 MyMemory 免费接口，有日额度限制。下面的 API 字段仅供自定义服务。":"No account, model or key needed. Uses the free MyMemory endpoint with daily limits. API fields below are for custom providers only.",
+    "允许游戏按钮使用当前在线服务（仅本次桌面会话）":"Allow the game button to use this online provider (this session only)",
+    "开启后，游戏按钮会发送采集文字、语境和相关术语到上面的服务。请自行确认服务费用；程序不购买额度、不下载模型、不自动重试。":"When enabled, the game button sends captured text, context and relevant terms to this provider. Check its pricing. No credit purchases, model downloads or automatic retries.",
+    "保持桌面工作台运行，游戏按钮可用离线记忆、本机 AI，或在翻译设置中明确开启的在线服务。译文直接更新原生文字。":"Keep the desktop running. The game button uses offline memory, local AI, or the online provider explicitly enabled in Translation settings. Translations update native text directly.",
+    "请在翻译设置中开启游戏按钮联网，或使用离线/本机服务。":"Enable online game requests in Translation settings, or use an offline/local provider.",
     "离线":"Offline", "归并为 ":"Grouped into ", " 条原文，保留 ":" source rows; retained ", "诊断 ":"Diagnostics: ", " 条。":" rows.",
 
     "无标签的拉丁文字建议手动指定语言":"Select untagged Latin languages manually",

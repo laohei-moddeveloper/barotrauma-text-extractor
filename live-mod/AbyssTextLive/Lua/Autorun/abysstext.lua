@@ -12,18 +12,32 @@ local queuedCount, controlCount = 0, 0
 local queuedBytes, sentCount = 0, 0
 local patchSignatures, installed = {}, false
 local InstallPatches
+local preload, preloadSteps = nil, 0
+local lastError, translatedCount, nextStatus = "", 0, 0
+local captureTime, captureBudget, captureAfter = 0, 100, {}
 local uiLanguage, sourceLanguage, targetLanguage = "zh", "English", "Simplified Chinese"
 local button, languageFile
 local richString
+local function Canvas()
+    -- LuaCs exposes GUI.Canvas as a constructor; the actual canvas instance is
+    -- GUI.GUI.Canvas. Lightweight engine fixtures expose it directly.
+    if GUI.GUI ~= nil then return GUI.GUI.Canvas end
+    return GUI.Canvas
+end
 pcall(function()
     LuaUserData.RegisterType("Barotrauma.RichString")
     richString = LuaUserData.CreateStatic("Barotrauma.RichString")
 end)
+for _, typeName in ipairs({"Barotrauma.TextPack", "Barotrauma.TextPack+Text", "Barotrauma.AfflictionPrefab+Description"}) do
+    pcall(LuaUserData.RegisterType,typeName)
+end
 local warned = {}
 local function Warn(key, message)
     if warned[key] then return end
     warned[key] = true
+    lastError=message
     print("[AbyssTextLive] " .. message)
+    pcall(function() File.Write(live .. "last-error.txt", "[AbyssTextLive] " .. message) end)
 end
 local function Ui(zh, en) if uiLanguage == "en" then return en end return zh end
 local function UpdateButton()
@@ -74,6 +88,7 @@ local function Signature(text)
 end
 local function Translated(text)
     if translations[text] then return translations[text] end
+    if not text:find("%d") then return nil end
     local template, values = Signature(text)
     local translated = translations[template]
     if not translated then return nil end
@@ -81,6 +96,7 @@ local function Translated(text)
 end
 local function Observe(text, key)
     if not active or type(text) ~= "string" or #text < 2 or #text > 20000 then return end
+    if text:find("译潜 · ",1,true)==1 or text:find("AbyssText · ",1,true)==1 then return end
     if not (text:match("%a") or text:match("[\128-\255]")) or translatedValues[text] or translations[text] then return end
     if key == nil or key == "" then text = Signature(text) end
     if translatedValues[text] or translations[text] then return end
@@ -110,6 +126,10 @@ local function RefreshLanguage(unloadOnly)
     TextManager.IncrementLanguageVersion()
 end
 local function CollectLanguageKeys()
+    local function Budget()
+        preloadSteps=preloadSteps+1
+        if preloadSteps>=200 or queuedCount>=256 then preloadSteps=0;coroutine.yield() end
+    end
     local current = {}
     local targetPacks = PacksFor(targetLanguage)
     if targetPacks ~= nil then
@@ -117,7 +137,7 @@ local function CollectLanguageKeys()
             for pair in pack.Texts do
                 local key = tostring(pair.Key):lower()
                 current[key] = current[key] or {}
-                for value in pair.Value do current[key][tostring(value.String)] = true end
+                for value in pair.Value do current[key][tostring(value.String)] = true;Budget() end
             end
         end
     end
@@ -138,21 +158,81 @@ local function CollectLanguageKeys()
                     end
                 end
                 if not localized then Observe(text, key) end
+                Budget()
             end
         end
     end
 end
+local function CollectPrefabs()
+    -- Public loaded prefab registries cover inventories, status definitions and
+    -- creature definitions before those objects appear on screen.
+    for _, registry in ipairs({"ItemPrefab","AfflictionPrefab","CharacterPrefab","MissionPrefab","JobPrefab"}) do
+        local static=_G[registry]
+        if static==nil then
+            pcall(function()
+                LuaUserData.RegisterType("Barotrauma."..registry)
+                static=LuaUserData.CreateStatic("Barotrauma."..registry)
+            end)
+        end
+        if static ~= nil then
+            local ok, err=pcall(function()
+                local collection=static.Prefabs
+                if collection==nil then return end
+                for prefab in collection do
+                    local function QueueValue(value,key)
+                        local text=TextValue(value)
+                        local localized=targetLanguage=="Simplified Chinese" and text:find("[\228-\233][\128-\191][\128-\191]")
+                        if not localized then Observe(text,key) end
+                    end
+                    for _, field in ipairs({"Name","Description","CauseOfDeathDescription","SelfCauseOfDeathDescription","SuccessMessage","FailureMessage"}) do
+                        pcall(function()
+                            -- Names already displayed in Chinese need no English->Chinese request.
+                            QueueValue(prefab[field])
+                        end)
+                    end
+                    if registry=="AfflictionPrefab" then
+                        pcall(function()
+                            for description in prefab.Descriptions do QueueValue(description.Text,tostring(description.TextTag)) end
+                        end)
+                    elseif registry=="MissionPrefab" then
+                        pcall(function() for message in prefab.Messages do QueueValue(message) end end)
+                    end
+                    preloadSteps=preloadSteps+1
+                    if preloadSteps>=200 or queuedCount>=256 then preloadSteps=0;coroutine.yield() end
+                end
+            end)
+            if not ok then Warn("prefab"..registry,"Prefab capture unavailable: "..registry..": "..tostring(err)) end
+        end
+    end
+end
+local function ReportStatus()
+    pcall(function()
+        File.Write(live.."status.json",json.serialize({protocol=1,active=active,preloading=preload~=nil,
+            queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
+            tracked_controls=controlCount,last_error=lastError}))
+    end)
+end
+local function ResumePreload()
+    if preload==nil or pending or queuedCount>=256 then return end
+    local ok, err=coroutine.resume(preload)
+    if not ok then Warn("preload","Loaded-text capture failed: "..tostring(err));preload=nil
+    elseif coroutine.status(preload)=="dead" then preload=nil end
+end
+local ApplyControl
 local function CollectControls(component)
     if not active or component == nil then return end
+    if captureBudget<=0 or (captureAfter[component] or 0)>captureTime then return end
     local ok, isText = pcall(LuaUserData.IsTargetType, component, "Barotrauma.GUITextBlock")
     if ok and isText then
+        captureBudget=captureBudget-1
+        if controls[component]~=nil or controlCount<3000 then captureAfter[component]=captureTime+0.5 end
         if controls[component] == nil and controlCount < 3000 then controls[component] = true; controlCount = controlCount + 1 end
         local read, text = pcall(function() return TextValue(component.Text) end)
         if read then Observe(text) end
+        if ApplyControl then ApplyControl(component) end
     end
 end
-local function ApplyControls()
-    for component in pairs(controls) do
+ApplyControl = function(component)
         local ok = pcall(function()
             local current = TextValue(component.Text)
             local old = originals[component]
@@ -172,6 +252,10 @@ local function ApplyControls()
             end
         end)
         if not ok then controls[component] = nil; originals[component] = nil end
+end
+local function ApplyControls()
+    for component in pairs(controls) do
+        ApplyControl(component)
     end
 end
 local function SendRequest()
@@ -195,8 +279,12 @@ local function Begin()
     active, pending = true, false
     if not installed then InstallPatches() end
     UpdateButton()
-    local ok, err = pcall(CollectLanguageKeys)
-    if not ok then Warn("collect", Ui("语言键采集不可用，继续采集原生界面与字体文字：", "Language-key capture unavailable; continuing with native controls and font strings: ") .. tostring(err)) end
+    preload=coroutine.create(function()
+        CollectPrefabs()
+        local ok, err=pcall(CollectLanguageKeys)
+        if not ok then Warn("collect", "Language-key capture unavailable: "..tostring(err)) end
+    end)
+    ResumePreload()
     -- Let one native frame render; no synchronous translation in the draw loop.
     Timer.Wait(function()
         local scanned = 0
@@ -204,32 +292,38 @@ local function Begin()
             if scanned >= 3000 then return end
             scanned = scanned + 1
             CollectControls(component)
+            pcall(function() CollectControls(component.GUIComponent) end)
             if component.Children ~= nil then
                 for child in component.Children do Walk(child) end
             end
         end
-        pcall(function() Walk(GUI.Canvas) end)
+        pcall(function() Walk(Canvas()) end)
         local sentOk, sendError = pcall(SendRequest)
         if not sentOk then Warn("send", Ui("无法写入翻译请求：", "Cannot write translation request: ") .. tostring(sendError)) end
     end, 800)
 end
 local function Stop()
     active, pending, dirty = false, false, false
+    preload=nil
     for component, old in pairs(originals) do
         pcall(function() if TextValue(component.Text) == old.display then component.Text = old.value end end)
     end
     originals, translations, translatedValues, queued, sent, controls = {}, {}, {}, {}, {}, {}
+    captureAfter={}
     queuedCount, controlCount = 0, 0
+    translatedCount=0
     queuedBytes, sentCount = 0, 0
     for index, signature in ipairs(patchSignatures) do
         pcall(Hook.RemovePatch,"abysstext.draw." .. index,"Barotrauma.ScalableFont","DrawString",signature,Hook.HookMethodType.Before)
     end
     pcall(Hook.RemovePatch,"abysstext.controls","Barotrauma.GUI","AddToUpdateList",{"Barotrauma.GUIComponent"},Hook.HookMethodType.Before)
+    pcall(Hook.RemovePatch,"abysstext.textdraw","Barotrauma.GUITextBlock","Draw",{"Microsoft.Xna.Framework.Graphics.SpriteBatch"},Hook.HookMethodType.Before)
     installed = false
     UpdateButton()
     local ok, err = pcall(RefreshLanguage, true)
     if not ok then Warn("restore", Ui("语言缓存恢复失败：", "Language-cache restore failed: ") .. tostring(err)) end
     print("[AbyssTextLive] " .. Ui("已停止试译并移除本插件语言资源；原控件文字已尽力恢复，必要时重新打开界面。", "Preview stopped; reopen cached screens if needed."))
+    ReportStatus()
 end
 local function DrawText(_, parameters)
     if not active then return end
@@ -256,6 +350,14 @@ InstallPatches = function()
             function(_, parameters) CollectControls(parameters["component"]) end, Hook.HookMethodType.Before)
     end)
     if not ok then Warn("controls", Ui("控件采集接口不可用：", "Control capture API unavailable: ") .. tostring(err)) end
+    -- Popup/dropdown controls may not live below GUI.Canvas. Observe actual
+    -- native text drawing too, and apply dictionary results to newly drawn
+    -- controls without waiting for another desktop response.
+    local textOk, textErr = pcall(function()
+        Hook.Patch("abysstext.textdraw", "Barotrauma.GUITextBlock", "Draw", {"Microsoft.Xna.Framework.Graphics.SpriteBatch"},
+            function(instance) CollectControls(instance) end, Hook.HookMethodType.Before)
+    end)
+    if not textOk then Warn("textdraw", Ui("动态文字控件接口不可用：", "Dynamic text-control API unavailable: ") .. tostring(textErr)) end
     installed = true
 end
 Game.AddCommand("abyss_translate", "译潜：试译源语言 / Translate source text via desktop", Begin)
@@ -265,7 +367,7 @@ Timer.Wait(function()
     pcall(ReadSettings)
     pcall(RefreshLanguage, true)
     local ok, err = pcall(function()
-        button = GUI.Button(GUI.RectTransform(Vector2(0.14, 0.04), GUI.Canvas, GUI.Anchor.TopRight), "译潜 · 一键试译")
+        button = GUI.Button(GUI.RectTransform(Vector2(0.14, 0.04), Canvas(), GUI.Anchor.TopRight), "译潜 · 一键试译")
         pcall(function() button.Color = Color(112, 74, 130) end)
         button.OnClicked = function() if active then Stop() else Begin() end return true end
         UpdateButton()
@@ -275,6 +377,8 @@ end, 1000)
 Hook.Add("think", "abysstext.live", function()
     if button ~= nil then pcall(function() button.AddToGUIUpdateList() end) end
     local now = Timer.GetTime()
+    captureTime,captureBudget=now,100
+    if now>=nextStatus then nextStatus=now+2;ReportStatus() end
     if not active then
         if now >= nextSettings then nextSettings=now+2; pcall(ReadSettings) end
         return
@@ -288,6 +392,7 @@ Hook.Add("think", "abysstext.live", function()
                     if response.revision ~= revision then
                         revision = response.revision
                         for source, target in pairs(response.translations or {}) do
+                            if translations[source]==nil then translatedCount=translatedCount+1 end
                             translations[source] = target
                             translatedValues[target] = true
                         end
@@ -303,7 +408,15 @@ Hook.Add("think", "abysstext.live", function()
     end
     if not pending and now >= nextSend then
         nextSend = now + 2
+        ResumePreload()
         local sentOk, sendError = pcall(SendRequest)
         if not sentOk then Warn("send", Ui("无法写入翻译请求：", "Cannot write translation request: ") .. tostring(sendError)) end
+    end
+end)
+-- Keep the one-click session active across rounds; only explicit Stop restores
+-- original text. Re-scan newly loaded definitions without discarding the cache.
+Hook.Add("roundStart", "abysstext.round", function()
+    if active then
+        preload=coroutine.create(function() CollectPrefabs();CollectLanguageKeys() end)
     end
 end)

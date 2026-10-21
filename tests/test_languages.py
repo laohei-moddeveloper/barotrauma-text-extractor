@@ -14,6 +14,14 @@ def record(text,language,key='greeting'):
     return Entry(text, 'texts.xml', 1, 1, '语言表', 'literal', text,key=key,language=language)
 
 class LanguageTests(unittest.TestCase):
+    def test_game_online_requires_session_opt_in_and_valid_url(self):
+        from translation_api import game_auto_allowed
+        self.assertTrue(game_auto_allowed('http://127.0.0.1:11434/v1'))
+        self.assertTrue(game_auto_allowed('',offline=True))
+        self.assertFalse(game_auto_allowed('https://example.com/v1'))
+        self.assertTrue(game_auto_allowed('https://example.com/v1',allow_online=True))
+        for endpoint in ['file:///secret','https://key@example.com/v1','https://example.com/?key=secret']:
+            self.assertFalse(game_auto_allowed(endpoint,allow_online=True))
     def test_exact_boundary_whitespace(self):
         from workbench import quality
         self.assertIn("首尾空白发生变化",quality(" Hello ","  你好 "))

@@ -16,7 +16,17 @@ def main():
     parser.add_argument("--raw", action="store_true", help="导出未归并的扫描证据（兼容旧版）")
     parser.add_argument("--source-language", default="Auto", help="Auto / English / Japanese / …")
     parser.add_argument("--target-language", default="Simplified Chinese", help="目标游戏语言名")
+    parser.add_argument("--install-live-mod",type=Path,help="安装内置插件到指定 LocalMods；拒绝覆盖已有目录")
     args = parser.parse_args()
+    if args.install_live_mod:
+        if args.folder or args.output:
+            parser.error("--install-live-mod 不能与扫描参数组合")
+        from companion import install_companion
+        try:
+            print(install_companion(args.install_live_mod))
+        except (OSError,ValueError) as error:
+            parser.exit(1,str(error)+"\n")
+        return
     if args.folder is None:
         if args.output:
             parser.error("--output 需要指定模组目录")

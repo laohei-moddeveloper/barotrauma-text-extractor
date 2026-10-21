@@ -17,6 +17,16 @@ class Settings:
     timeout: int = 60
 
 
+def game_auto_allowed(endpoint, offline=False, allow_online=False):
+    """Remote game requests require an explicit desktop-session opt-in."""
+    if offline:
+        return True
+    address = urlparse(endpoint)
+    if address.scheme not in {"http", "https"} or not address.hostname or address.username or address.password or address.query or address.fragment:
+        return False
+    return address.hostname in {"127.0.0.1", "localhost", "::1"} or allow_online
+
+
 def batches(units, max_chars=10000, max_items=24):
     batch, size = [], 0
     for unit in units:

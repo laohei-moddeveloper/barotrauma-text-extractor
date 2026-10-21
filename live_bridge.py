@@ -29,6 +29,14 @@ class LiveBridge:
         atomic_write(path,json.dumps({"ui_language":ui_language,"source_language":canonical_language(source_language),
             "target_language":canonical_language(target_language)},ensure_ascii=False))
 
+    def status(self):
+        path=self.data/'status.json'
+        if not path.exists():return None
+        if path.is_symlink() or path.stat().st_size>16384:raise ValueError('Invalid companion status file')
+        data=json.loads(path.read_text(encoding='utf-8'))
+        if not isinstance(data,dict) or data.get('protocol')!=1:raise ValueError('Invalid companion status protocol')
+        return data
+
     def read_request(self):
         path = self.data/"requests.json"
         if not path.exists(): return None

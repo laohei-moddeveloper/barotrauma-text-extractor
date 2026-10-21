@@ -4,6 +4,7 @@ from pathlib import Path
 import queue
 import sys
 import tempfile
+import threading
 import time
 import tkinter as tk
 from unittest.mock import patch
@@ -16,8 +17,12 @@ from workbench import Project, source_id
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument("--screenshot",type=Path);parser.add_argument("--ui-language",choices=["zh","en"],default="zh");args=parser.parse_args()
-    root=tk.Tk();window=WorkbenchWindow(root,preferences_path=False)
+    parser=argparse.ArgumentParser();parser.add_argument("--screenshot",type=Path);parser.add_argument("--ui-language",choices=["zh","en"],default="zh")
+    parser.add_argument("--scale",type=float,choices=[1.0,1.5],default=1.0,help="Tk font DPI scale; does not change Windows display settings")
+    args=parser.parse_args()
+    root=tk.Tk();root.tk.call("tk","scaling",96/72*args.scale)
+    window=WorkbenchWindow(root,preferences_path=False)
+    window.provider.set("离线复用")  # UI regression never calls a live service.
     errors=[]
     root.report_callback_exception=lambda *values:errors.append(str(values[1]))
     def pump(seconds=0.12):
@@ -74,6 +79,45 @@ def main():
         parent=window.table.master.master
         pager=parent.winfo_children()[-1]
         assert pager.winfo_y()+pager.winfo_height()<=parent.winfo_height()+1, "Pager clipped on minimum window"
+        # Verify unsaved decisions without writing into user settings or sources.
+        project.dirty=True
+        with patch("tkinter.messagebox.askyesnocancel",return_value=None):
+            assert not window.confirm_unsaved()
+        with patch("tkinter.messagebox.askyesnocancel",return_value=False):
+            assert window.confirm_unsaved()
+        # Cancellation is signalled from the same callback used by the UI button.
+        window.cancel.set();assert window.cancel.is_set()
+        window.cancel.clear()
+        # Long rich text and placeholders must survive editor commits and locale switches.
+        source_before=warning.source
+        long_text="‖color:255,200,100‖长文本 [name] {0}‖color:end‖\n"*30
+        window.target_text.delete("1.0","end");window.target_text.insert("1.0",long_text)
+        window.commit_editor();assert warning.translation==long_text
+        window.set_language("en");pump(0.6)
+        assert warning.source==source_before and warning.translation==long_text
+        window.target_text.delete("1.0","end");window.target_text.insert("1.0","气压警告")
+        window.commit_editor()
+        # Exercise the real bounded worker/event loop with simulated results.
+        window.install_project(Project(report));window.provider.set("免配置联网翻译")
+        units=window.project.units[:12]
+        window.table.selection_set(units[0].id);window.select_unit();pump()
+        window.target_text.delete("1.0","end");window.target_text.insert("1.0","已有译文")
+        window.commit_editor()
+        lock=threading.Lock();counts={"active":0,"peak":0,"calls":0}
+        def mock_online(unit,target,**kwargs):
+            with lock:
+                counts["active"]+=1;counts["calls"]+=1
+                counts["peak"]=max(counts["peak"],counts["active"])
+            time.sleep(0.02)
+            with lock:counts["active"]-=1
+            return {unit.id:{"translation":"模拟译文 "+unit.source,"issues":[]}}
+        with patch.object(window.online_cache,"translate",side_effect=mock_online):
+            window.start_drafts(units=units)
+            deadline=time.monotonic()+5
+            while window.busy and time.monotonic()<deadline:pump(0.1)
+        assert not window.busy and counts["peak"]<=2 and counts["calls"]==11, counts
+        assert window.project.by_id[units[0].id].translation=="已有译文"
+        window.install_project(project);window.provider.set("离线复用");pump()
         root.geometry("1440x900");pump()
         if args.ui_language=="en":window.set_language("en");pump(0.6)
         if args.screenshot:
@@ -84,7 +128,7 @@ def main():
         # Prevent a final unsaved prompt and close without network/game activity.
         window.project.dirty=False
         root.destroy()
-    print("Tk workbench checks passed: edit, review, search, offline/API draft retention, save/reopen, 3000-row pagination.")
+    print(f"Tk workbench checks passed at {args.scale*100:.0f}% font DPI: edit, review, search, offline/API draft retention, save/reopen, 3000-row pagination, unsaved cancellation, long rich text/placeholders, zh/en, 1060x700 and 1440x900.")
 
 
 if __name__=="__main__":main()
