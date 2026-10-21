@@ -126,6 +126,8 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
                 if str(data.get("responseStatus")) != "200" or not isinstance(result,str) or not result:
                     raise ValueError("免费联网翻译服务返回错误；已完成译文保留。")
                 translated.append(html.unescape(result))
+            except FileNotFoundError:
+                raise TranslationServiceError("Windows 包缺少 HTTPS/TLS 运行资源；尚未发送翻译请求，请更新程序。") from None
             except HTTPError as error:
                 if error.code in {403,429}:
                     raise TranslationServiceError("免费联网翻译被限流或拒绝；已完成译文保留，一小时后有限重试。",3600) from None

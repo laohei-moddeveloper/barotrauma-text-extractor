@@ -17,7 +17,25 @@ def main():
     parser.add_argument("--source-language", default="Auto", help="Auto / English / Japanese / …")
     parser.add_argument("--target-language", default="Simplified Chinese", help="目标游戏语言名")
     parser.add_argument("--install-live-mod",type=Path,help="安装内置插件到指定 LocalMods；拒绝覆盖已有目录")
+    parser.add_argument("--check-online",type=Path,metavar='NEW_JSON',help="无窗口验证联网翻译，将结果写入新的 JSON 文件")
     args = parser.parse_args()
+    if args.check_online:
+        if args.check_online.exists() or args.folder or args.output or args.install_live_mod:
+            parser.error('--check-online 需要新 JSON 路径，不能与扫描/安装参数组合')
+        import json,time
+        from types import SimpleNamespace
+        from free_online import translate_unit
+        from workbench import atomic_write
+        start=time.monotonic()
+        try:
+            result=translate_unit(SimpleNamespace(id='network-check',source='Open hatch',source_language='English'),'Simplified Chinese')['network-check']
+            report={'ok':not result['issues'],'translation':result['translation'],'issues':result['issues']}
+        except Exception as error:
+            report={'ok':False,'error':str(error)}
+        report['elapsed_seconds']=round(time.monotonic()-start,3)
+        atomic_write(args.check_online,json.dumps(report,ensure_ascii=False))
+        if not report['ok']:parser.exit(1)
+        return
     if args.install_live_mod:
         if args.folder or args.output:
             parser.error("--install-live-mod 不能与扫描参数组合")

@@ -59,6 +59,12 @@ class FreeOnlineTests(unittest.TestCase):
             translate_unit(self.unit('Warning'),'Simplified Chinese',opener)
         self.assertEqual(failure.exception.retry_after,3600)
 
+    def test_missing_tls_file_is_not_misreported_as_network_timeout(self):
+        def opener(*args,**kwargs):raise FileNotFoundError('missing TLS resource')
+        with self.assertRaisesRegex(TranslationServiceError,'TLS') as failure:
+            translate_unit(self.unit('Warning'),'Simplified Chinese',opener)
+        self.assertEqual(failure.exception.retry_after,0)
+
     def test_cancellation_never_sends(self):
         def opener(*args,**kwargs):raise AssertionError('unexpected network')
         with self.assertRaisesRegex(ValueError,'取消'):
