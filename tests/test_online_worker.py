@@ -55,7 +55,7 @@ class OnlineWorkerTests(unittest.TestCase):
     def test_failed_record_does_not_leave_actual_bridge_response_empty(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)/'AbyssTextLive';root.mkdir()
-            (root/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>')
+            (root/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>', encoding='utf-8')
             window=self.window();window.bridge=LiveBridge(root)
             window.live_drafts=SimpleNamespace(get=lambda:True)
             window.publish_live=WorkbenchWindow.publish_live.__get__(window)

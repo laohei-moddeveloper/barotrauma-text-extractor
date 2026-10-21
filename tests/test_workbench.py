@@ -97,7 +97,7 @@ class WorkbenchTests(unittest.TestCase):
         loaded=Project.load(output)
         self.assertEqual(loaded.by_id[unit.id].notes,"术语已确认")
         self.assertEqual(loaded.memory[unit.source],"医疗包")
-        self.assertNotIn("api",json.loads(output.read_text()))
+        self.assertNotIn("api",json.loads(output.read_text(encoding='utf-8')))
         self.assertFalse(loaded.dirty)
 
     def test_split_homonyms_survives_rescan(self):
@@ -158,7 +158,7 @@ class WorkbenchTests(unittest.TestCase):
         ET.fromstring(data)
         self.assertEqual(path.read_bytes(),before)
         self.assertEqual(lua.read_bytes(),b'-- keep\r\nGUI.Button(parent, "Launch" .. " now")\r\n')
-        self.assertIn('立即 \\"出发\\"',(output/"ui.lua").read_text())
+        self.assertIn('立即 \\"出发\\"',(output/"ui.lua").read_text(encoding='utf-8'))
 
     def test_source_export_preserves_utf16(self):
         self.write("a.xml",'<Items><Item name="Kit"/></Items>'.encode("utf-16"))
@@ -231,8 +231,8 @@ class WorkbenchTests(unittest.TestCase):
         project=self.project();unit=next(u for u in project.units if u.source=="Start")
         project.update(unit.id,"开始",state="已校对")
         target=self.base/"copy";count,notes=export_copy(project,target)
-        self.assertIn('Hook.Add("Start"',(target/"a.lua").read_text())
-        self.assertIn('GUI.Button(parent,"开始")',(target/"a.lua").read_text())
+        self.assertIn('Hook.Add("Start"',(target/"a.lua").read_text(encoding='utf-8'))
+        self.assertIn('GUI.Button(parent,"开始")',(target/"a.lua").read_text(encoding='utf-8'))
         self.assertTrue(notes)
 
 
@@ -283,11 +283,11 @@ class LiveBridgeTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)/"AbyssTextLive";self.root.mkdir()
-        (self.root/"filelist.xml").write_text('<contentpackage name="AbyssTextLive"/>')
+        (self.root/"filelist.xml").write_text('<contentpackage name="AbyssTextLive"/>', encoding='utf-8')
         self.bridge=LiveBridge(self.root)
 
     def request(self):
-        (self.root/"Live/requests.json").write_text(json.dumps({"protocol":1,"request_id":"one","translate":True,"records":[{"key":"entityname.a","text":"Medkit"},{"key":"","text":"Open hatch"}]}))
+        (self.root/"Live/requests.json").write_text(json.dumps({"protocol":1,"request_id":"one","translate":True,"records":[{"key":"entityname.a","text":"Medkit"},{"key":"","text":"Open hatch"}]}), encoding='utf-8')
         return self.bridge.read_request()
 
     def test_request_deduplication_and_native_response(self):
@@ -297,7 +297,7 @@ class LiveBridgeTests(unittest.TestCase):
         for u in project.units:project.update(u.id,{"Medkit":"医疗包","Open hatch":"打开舱门"}[u.source])
         count,literals,_=self.bridge.publish(project,request_id,drafts=True,complete=False)
         self.assertEqual((count,literals),(1,2))
-        response=json.loads((self.root/"Live/response.json").read_text())
+        response=json.loads((self.root/"Live/response.json").read_text(encoding='utf-8'))
         self.assertFalse(response["complete"])
         self.assertEqual(response["translations"]["Open hatch"],"打开舱门")
         ET.parse(self.root/"Live/Translations.xml")
@@ -305,7 +305,7 @@ class LiveBridgeTests(unittest.TestCase):
     def test_mailbox_rejects_oversize_batch_and_bad_metadata_without_accepting(self):
         path=self.root/'Live/requests.json'
         for data in [dict(records=[{'text':'Tool'}]*9),dict(records=[],session_id=[]),dict(records=[],target_language='x'*257)]:
-            path.write_text(json.dumps({'protocol':1,**data}))
+            path.write_text(json.dumps({'protocol':1,**data}), encoding='utf-8')
             with self.assertRaises(ValueError):self.bridge.read_request()
             self.assertEqual(self.bridge.seen,'')
         self.assertIsNotNone(self.request())
@@ -313,11 +313,11 @@ class LiveBridgeTests(unittest.TestCase):
     def test_reply_retains_canonical_pair_and_session_for_client_validation(self):
         path=self.root/'Live/requests.json'
         path.write_text(json.dumps({'protocol':1,'session_id':'current','request_id':'one',
-            'source_language':'en','target_language':'zh-cn','records':[{'text':'Tool'}]}))
+            'source_language':'en','target_language':'zh-cn','records':[{'text':'Tool'}]}), encoding='utf-8')
         report,_,request=self.bridge.read_request()
         project=Project(report,source_language='English',target_language='Simplified Chinese')
         self.bridge.publish(project,request)
-        response=json.loads((self.root/'Live/response.json').read_text())
+        response=json.loads((self.root/'Live/response.json').read_text(encoding='utf-8'))
         self.assertEqual((response['session_id'],response['source_language'],response['target_language']),
             ('current','English','Simplified Chinese'))
 
@@ -334,7 +334,7 @@ class LiveBridgeTests(unittest.TestCase):
         project=Project(report);u=next(u for u in project.units if u.source=="Medkit")
         project.update(u.id,"医疗包",state="已校对")
         self.bridge.publish(project,request_id)
-        self.assertNotIn("unrelated",(self.root/"Live/Translations.xml").read_text())
+        self.assertNotIn("unrelated",(self.root/"Live/Translations.xml").read_text(encoding='utf-8'))
 
     def test_non_bridge_directory_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -67,10 +67,10 @@ class LanguageTests(unittest.TestCase):
 
     def test_unicode_game_request_and_settings(self):
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp);(root/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>')
+            root=Path(temp);(root/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>', encoding='utf-8')
             bridge=LiveBridge(root);bridge.configure('en','ja','fr')
-            self.assertEqual(json.loads((root/'Live/settings.json').read_text())['target_language'],'French')
-            (root/'Live/requests.json').write_text(json.dumps({'protocol':1,'source_language':'Japanese','records':[{'text':'こんにちは'}]}))
+            self.assertEqual(json.loads((root/'Live/settings.json').read_text(encoding='utf-8'))['target_language'],'French')
+            (root/'Live/requests.json').write_text(json.dumps({'protocol':1,'source_language':'Japanese','records':[{'text':'こんにちは'}]}), encoding='utf-8')
             report,_,_=bridge.read_request()
             self.assertEqual(report.entries[0].language,'Japanese')
             self.assertEqual(Project(report,source_language='Auto',target_language='French').source_language,'Japanese')

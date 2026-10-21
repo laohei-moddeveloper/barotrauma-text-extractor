@@ -85,4 +85,10 @@ def main():
 
 
 if __name__ == "__main__":
+    # Redirected Windows CLI streams may default to cp1252/ascii. Keep Chinese
+    # diagnostics readable and preserve exit codes; windowed EXEs have no streams.
+    import sys
+    for stream in (sys.stdout,sys.stderr):
+        if stream is not None and hasattr(stream,'reconfigure'):
+            stream.reconfigure(encoding='utf-8',errors='backslashreplace')
     main()

@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -173,12 +174,13 @@ class ExtractorTests(unittest.TestCase):
         self.write("a.xml", "<broken>")
         entrypoint = Path(__file__).resolve().parents[1] / "app.py"
         output = Path(self.temp.name) / "out.json"
-        result = subprocess.run([sys.executable, str(entrypoint), str(self.root), "-o", str(output)], capture_output=True)
+        result = subprocess.run([sys.executable, str(entrypoint), str(self.root), "-o", str(output)], capture_output=True,env={**os.environ,'PYTHONIOENCODING':'ascii'})
         self.assertEqual(result.returncode, 2)
         self.assertTrue(output.exists())
+        self.assertIn('扫描',result.stdout.decode('utf-8'))
         result = subprocess.run([sys.executable, str(entrypoint), str(self.root), "-o", str(self.root / "a.xml")], capture_output=True)
         self.assertEqual(result.returncode, 1)
-        self.assertEqual((self.root / "a.xml").read_text(), "<broken>")
+        self.assertEqual((self.root / "a.xml").read_text(encoding='utf-8'), "<broken>")
 
 
 if __name__ == "__main__":
