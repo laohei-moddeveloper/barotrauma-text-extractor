@@ -5,3 +5,10 @@ build/
 dist/
 *.spec
 .local-release/
+
+**/bin/
+**/obj/
+artifacts/
+live-mod/**/Live/settings.json
+live-mod/**/Live/requests.json
+live-mod/**/Live/response.json

@@ -11,7 +11,7 @@ import re
 from xml.parsers import expat
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 MAX_BYTES = 16 * 1024 * 1024
 
 
@@ -30,6 +30,7 @@ class Entry:
     evidence: str = ""
     resolved: list[dict] = field(default_factory=list)
     translation: str = ""
+    location: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -39,6 +40,7 @@ class Report:
     diagnostics: list[dict] = field(default_factory=list)
     scanned: int = 0
     skipped: int = 0
+    fingerprints: dict = field(default_factory=dict)
 
     def issue(self, file, message):
         self.diagnostics.append({"file": str(file), "message": message})
@@ -79,6 +81,7 @@ def xml_entries(source: str, file: str, report: Report):
     language = ""
     pack_depth = None
     raw = source.encode("utf-8")
+    line_starts = [0] + [m.end() for m in re.finditer(r"\r\n|\r|\n", source)]
 
     def reject(*_):
         raise ValueError("禁止 DTD/实体声明；未读取外部实体")
@@ -91,25 +94,32 @@ def xml_entries(source: str, file: str, report: Report):
         line, column = parser.CurrentLineNumber, parser.CurrentColumnNumber + 1
         context = "/".join(n["tag"] for n in stack) + "/" + tag
         node = {"tag": tag, "text": [], "line": line, "column": column,
-                "attrs": attrs_lower, "context": context}
+                "attrs": attrs_lower, "context": context, "has_children": False}
+        if parent:
+            parent["has_children"] = True
         stack.append(node)
         if lower == "infotexts":
             language = attrs_lower.get("language", "unknown")
             pack_depth = len(stack)
             return
-        if pack_depth is not None:
-            return
         owner = attrs_lower.get("identifier", "")
         # Attribute positions include multiline start tags; scan only this opening tag.
         attr_spans = {}
+        attr_locations = {}
         opening = re.compile(rb"<[^\s/>]+(?:\s+[^\s=/>]+\s*=\s*(?:\"[^\"]*\"|'[^']*'))*\s*/?>").match(raw, parser.CurrentByteIndex)
         if opening:
             opening_text = opening[0].decode("utf-8")
+            node["content_start"] = line_starts[line - 1] + column - 1 + len(opening_text)
             for match in re.finditer(r"([^\s=<>/]+)\s*=\s*([\"'])(.*?)\2", opening_text, re.S):
                 prefix = opening_text[:match.start(3)]
                 attr_spans[match[1].lower()] = (
                     line + prefix.count("\n"),
                     len(prefix.rsplit("\n", 1)[-1]) + (column if "\n" not in prefix else 1))
+                offset = line_starts[line - 1] + column - 1 + match.start(3)
+                attr_locations[match[1].lower()] = {"start": offset, "end": offset + len(match[3]),
+                    "format": "xml-attribute", "quote": match[2]}
+        if pack_depth is not None:
+            return
         for attr, value in attrs_lower.items():
             category = ""
             kind = "literal"
@@ -129,15 +139,24 @@ def xml_entries(source: str, file: str, report: Report):
                 # Unknown mod component fields remain visible for review, never asserted as UI.
                 category, kind = "XML 待核查字段", "candidate"
             if category:
+                location = dict(attr_locations.get(attr, {}))
+                # Confirmed fallback keys from public ItemPrefab / AfflictionPrefab.
+                if lower == "item" and attr == "name" and owner:
+                    location["native_key"] = "entityname." + attrs_lower.get("nameidentifier", owner)
+                if lower == "affliction" and attr in {"name", "description"} and owner:
+                    location["native_key"] = ("afflictionname." if attr == "name" else "afflictiondescription.") + attrs_lower.get("translationoverride", owner)
+                reference_key = value
+                if lower == "item" and attr == "nameidentifier":
+                    reference_key = "entityname." + value
                 evidence = evidence or f"XML 字段规则 {tag}.{attr}；实际可见性取决于运行条件"
                 row, col = attr_spans.get(attr, (line, column))
                 report.add(file, row, col, category, kind, value,
-                           key=value if kind == "reference" else "", context=context + (f" [{owner}]" if owner else "") + "@" + attr,
-                           evidence=evidence)
+                           key=reference_key if kind == "reference" else "", context=context + (f" [{owner}]" if owner else "") + "@" + attr,
+                           evidence=evidence, location=location)
         # Implicit engine localization keys are references, not invented original text.
         prefixes = {"item": "entityname", "character": "entityname", "affliction": "afflictionname", "job": "jobname", "talent": "talentname"}
-        if owner and lower in prefixes and not attrs_lower.get("name"):
-            key = prefixes[lower] + "." + owner
+        if owner and lower in prefixes and not attrs_lower.get("name") and not attrs_lower.get("nameidentifier"):
+            key = prefixes[lower] + "." + (attrs_lower.get("translationoverride", owner) if lower == "affliction" else owner)
             report.add(file, line, column, NAMES[lower] + "名称", "reference", key,
                        key=key, context=context, evidence="按常见游戏命名约定推导的查找键；需核对游戏版本、继承及覆盖")
 
@@ -145,9 +164,11 @@ def xml_entries(source: str, file: str, report: Report):
         nonlocal pack_depth, language
         node = stack.pop()
         text = "".join(node["text"])
-        if pack_depth is not None and len(stack) == pack_depth:
+        if pack_depth is not None and len(stack) >= pack_depth and tag.lower() != "override" and not node["has_children"]:
+            finish = line_starts[parser.CurrentLineNumber - 1] + parser.CurrentColumnNumber
+            location = {"start": node.get("content_start", finish), "end": finish, "format": "xml-text"}
             report.add(file, node["line"], node["column"], "语言表", "literal", text,
-                       key=tag, language=language, context=node["context"], evidence="原生 infotexts 语言表条目")
+                       key=tag, language=language, context=node["context"], evidence="原生 infotexts 语言表条目", location=location)
         elif pack_depth is None and text.strip():
             report.add(file, node["line"], node["column"], "XML 节点正文", "candidate", text,
                        context=node["context"], evidence="节点正文；需核查是否为玩家显示文本")
@@ -169,6 +190,7 @@ class Token:
     offset: int
     string: bool = False
     dynamic: bool = False
+    end: int = 0
 
 
 def tokens(source: str, lua: bool):
@@ -180,7 +202,7 @@ def tokens(source: str, lua: bool):
             i += 1
             continue
         if (lua and source.startswith("--", i)) or (not lua and source.startswith("//", i)):
-            if lua and (long := re.match(r"--\[(=*)\[", source[i:])):
+            if lua and (long := re.compile(r"--\[(=*)\[").match(source, i)):
                 finish = source.find("]" + long[1] + "]", i + len(long[0]))
                 if finish < 0:
                     raise ValueError("未闭合 Lua 长注释")
@@ -195,26 +217,26 @@ def tokens(source: str, lua: bool):
                 raise ValueError("未闭合 C# 注释")
             i = finish + 2
             continue
-        if lua and (long := re.match(r"\[(=*)\[", source[i:])):
+        if lua and (long := re.compile(r"\[(=*)\[").match(source, i)):
             begin = i + len(long[0])
             finish = source.find("]" + long[1] + "]", begin)
             if finish < 0:
                 raise ValueError("未闭合 Lua 长字符串")
             value = re.sub(r"\r\n|\n\r|\r", "\n", source[begin:finish])
-            result.append(Token(value.removeprefix("\n"), i, True))
+            result.append(Token(value.removeprefix("\n"), i, True, end=finish + len(long[1]) + 2))
             i = finish + len(long[1]) + 2
             continue
         # Raw/interpolated C# strings are retained as review candidates.
-        raw_match = re.match(r'(\$*)("{3,})', source[i:]) if not lua else None
+        raw_match = re.compile(r'(\$*)("{3,})').match(source, i) if not lua else None
         if raw_match:
             begin = i + len(raw_match[0])
             finish = source.find(raw_match[2], begin)
             if finish < 0:
                 raise ValueError("未闭合 C# 原始字符串")
-            result.append(Token(source[begin:finish], i, True, True))
+            result.append(Token(source[begin:finish], i, True, True, finish + len(raw_match[2])))
             i = finish + len(raw_match[2])
             continue
-        match = re.match(r'(?:(?:\$@|@\$|@|\$)?")|\'', source[i:])
+        match = re.compile(r'(?:(?:\$@|@\$|@|\$)?")|\'').match(source, i)
         if match:
             prefix = match[0]
             quote = prefix[-1]
@@ -230,7 +252,7 @@ def tokens(source: str, lua: bool):
                     i += 1
                     break
                 if ch == "\\" and not verbatim:
-                    escape = re.match(r'\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|x[0-9a-fA-F]{2}|[0-9]{1,3}|.)', source[i:], re.S)
+                    escape = re.compile(r'\\(?:u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|x[0-9a-fA-F]{2}|[0-9]{1,3}|.)', re.S).match(source, i)
                     if not escape:
                         raise ValueError("字符串末尾转义不完整")
                     value = escape[0][1:]
@@ -249,9 +271,9 @@ def tokens(source: str, lua: bool):
                 raise ValueError("未闭合字符串")
             # Single quotes in C# are char literals, not localizable strings.
             if lua or quote == '"':
-                result.append(Token("".join(chars), begin, True, "$" in prefix))
+                result.append(Token("".join(chars), begin, True, "$" in prefix, i))
             continue
-        identifier = re.match(r"[A-Za-z_][\w]*", source[i:])
+        identifier = re.compile(r"[A-Za-z_][\w]*").match(source, i)
         value = identifier[0] if identifier else source[i]
         result.append(Token(value, i))
         i += len(value)
@@ -269,9 +291,34 @@ SINKS = {"GUI.TextBlock": {1}, "GUI.Button": {1}, "GUITextBlock": {1},
 
 def script_entries(source, file, report):
     stream = tokens(source, file.lower().endswith(".lua"))
+    # Fold only adjacent constant strings. Never evaluate code or expressions.
+    folded = []
+    cursor = 0
+    lua = file.lower().endswith(".lua")
+    while cursor < len(stream):
+        token = stream[cursor]
+        cursor += 1
+        if token.string and not token.dynamic:
+            combined = token.value
+            finish = token.end
+            while cursor < len(stream):
+                width = 2 if lua else 1
+                operator = [t.value for t in stream[cursor:cursor+width]]
+                expected = [".","."] if lua else ["+"]
+                next_index = cursor + width
+                if operator != expected or next_index >= len(stream): break
+                other = stream[next_index]
+                if not other.string or other.dynamic: break
+                combined += other.value
+                finish = other.end
+                cursor = next_index + 1
+            token = Token(combined,token.offset,True,False,finish)
+        folded.append(token)
+    stream = folded
     lines = [i for i, ch in enumerate(source) if ch == "\n"]
     source_lines = source.splitlines()
     frames = []
+    bindings = {}
     for i, token in enumerate(stream):
         if token.value == "(" and not token.string:
             parts = []
@@ -291,6 +338,13 @@ def script_entries(source, file, report):
                 frames.pop()
         elif token.value == "," and not token.string and frames:
             frames[-1][1] += 1
+        if not token.string:
+            if token.value == "=" and i >= 1:
+                bindings.pop(stream[i - 1].value,None)
+            if frames and frames[-1][0] in SINKS and frames[-1][1] in SINKS[frames[-1][0]] and token.value in bindings:
+                entry = bindings[token.value]
+                entry.category = "脚本显示流向"
+                entry.evidence += f"；同文件字面量变量传入 {frames[-1][0]}，仍需核查作用域与运行分支"
         if not token.string or not token.value.strip():
             continue
         name, arg, _ = frames[-1] if frames else ("", 0, "")
@@ -320,14 +374,42 @@ def script_entries(source, file, report):
             kind, key = "candidate", ""
             evidence += "；插值/原始字符串未解析运行时表达式"
         report.add(file, row, col, category, kind, token.value, key=key,
-                   context=source_lines[row - 1][:500], evidence=evidence)
+                   context=source_lines[row - 1][:500], evidence=evidence,
+                   location={"start": token.offset, "end": token.end,
+                             "format": "dynamic" if token.dynamic else ("lua-string" if file.lower().endswith(".lua") else "cs-string")})
+        if i >= 2 and stream[i-1].value == "=" and re.fullmatch(r"[A-Za-z_]\w*",stream[i-2].value) and (i<3 or stream[i-3].value not in {".",":"}):
+            bindings[stream[i-2].value] = report.entries[-1]
 
 
-def scan(root: Path, cancel=None) -> Report:
+def scan(root: Path, cancel=None, cache=None, progress=None, registered_only=False) -> Report:
     root = Path(root).resolve()
     if not root.is_dir():
         raise ValueError("请选择存在的模组目录")
     report = Report(str(root))
+    registered = None
+    manifest = root/"filelist.xml"
+    if registered_only and manifest.is_file() and not manifest.is_symlink():
+        try:
+            parser = expat.ParserCreate()
+            registered = {"filelist.xml"}
+            def resource(tag, attrs):
+                value = next((v for k,v in attrs.items() if k.lower()=="file"),"")
+                if not value or not value.lower().endswith(".xml"): return
+                value=value.replace("\\","/").replace("%ModDir%/","")
+                candidate=(root/value).resolve()
+                if not candidate.is_relative_to(root) or "%" in value:
+                    report.issue("filelist.xml","外部或无法解析的 XML 资源引用："+value)
+                    return
+                registered.add(candidate.relative_to(root).as_posix())
+                if not candidate.is_file():report.issue(value,"清单引用的 XML 文件不存在")
+            parser.StartElementHandler=resource
+            def reject(*_):raise ValueError("清单不支持 DTD / 实体声明")
+            parser.StartDoctypeDeclHandler=reject
+            if manifest.stat().st_size>MAX_BYTES:raise ValueError("清单超过大小限制")
+            parser.Parse(decode(manifest.read_bytes()),True)
+        except (OSError,ValueError,expat.ExpatError) as error:
+            registered=None
+            report.issue("filelist.xml","无法确定资源范围，改为完整扫描："+str(error))
     # No symlink traversal, script execution, network access, or source modification.
     import os
     for base, dirs, files in os.walk(root, followlinks=False, onerror=lambda e: report.issue(e.filename, str(e))):
@@ -338,6 +420,9 @@ def scan(root: Path, cancel=None) -> Report:
                 return report
             path = Path(base) / name
             relative = path.relative_to(root).as_posix()
+            if registered is not None and path.suffix.lower()==".xml" and relative not in registered:
+                report.skipped+=1
+                continue
             if path.suffix.lower() not in {".xml", ".lua", ".cs"}:
                 report.skipped += 1
                 if path.suffix.lower() in {".dll", ".sub"}:
@@ -349,12 +434,24 @@ def scan(root: Path, cancel=None) -> Report:
                     raise ValueError("跳过符号链接")
                 if path.stat().st_size > MAX_BYTES:
                     raise ValueError("文件超过 16 MiB 限制，未扫描")
-                source = decode(path.read_bytes())
-                if path.suffix.lower() == ".xml":
+                data = path.read_bytes()
+                digest = hashlib.sha256(data).hexdigest()
+                report.fingerprints[relative] = digest
+                source = decode(data)
+                cache_key = (str(root), relative, digest)
+                if cache is not None and cache_key in cache:
+                    import copy
+                    report.entries.extend(copy.deepcopy(cache[cache_key]))
+                elif path.suffix.lower() == ".xml":
                     xml_entries(source, relative, report)
                 else:
                     script_entries(source, relative, report)
+                if cache is not None and cache_key not in cache:
+                    import copy
+                    cache[cache_key] = copy.deepcopy(report.entries[start:])
                 report.scanned += 1
+                if progress:
+                    progress(relative, report.scanned)
             except (OSError, UnicodeError, ValueError, expat.ExpatError) as error:
                 del report.entries[start:]  # Never present a broken file as completely parsed.
                 report.issue(relative, str(error))
@@ -366,7 +463,7 @@ def scan(root: Path, cancel=None) -> Report:
     for entry in report.entries:
         if entry.kind == "reference":
             entry.resolved = tables.get(entry.key.lower(), [])
-        elif entry.category != "语言表" and KEY_SHAPE.fullmatch(entry.text) and entry.text.lower() in tables:
+        elif entry.category == "对话/提示" and KEY_SHAPE.fullmatch(entry.text) and entry.text.lower() in tables:
             entry.kind, entry.key = "reference", entry.text
             entry.resolved = tables[entry.text.lower()]
             entry.evidence += "；值与模组语言表键匹配，按引用展示（同名原文仍需核查）"
@@ -388,6 +485,7 @@ def export_report(report: Report, path: Path):
             for entry in report.entries:
                 values = asdict(entry)
                 values["resolved"] = json.dumps(values["resolved"], ensure_ascii=False)
+                values["location"] = json.dumps(values["location"], ensure_ascii=False)
                 writer.writerow({key: safe(value) for key, value in values.items()})
         # Diagnostics must travel with the spreadsheet, rather than silently vanish.
         path.with_suffix(".diagnostics.json").write_text(json.dumps({"root": report.root,

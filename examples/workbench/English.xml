@@ -1,0 +1,12 @@
+<infotexts language="English">
+  <entityname.pressurekit>Pressure repair kit</entityname.pressurekit>
+  <entitydescription.pressurekit>Repairs hull damage. Keep [target] clear.</entitydescription.pressurekit>
+  <afflictionname.deepache>Deep pressure ache</afflictionname.deepache>
+  <afflictiondescription.deepache>Your joints hurt under pressure.</afflictiondescription.deepache>
+  <event.pressurewarning>Pressure warning</event.pressurewarning>
+  <event.welcomeaboard>Welcome aboard, [name]!</event.welcomeaboard>
+  <event.repairprogress>Repair progress: {0}%</event.repairprogress>
+  <talentname.steadyhands>Steady hands</talentname.steadyhands>
+  <ui.depart>Ready to depart</ui.depart>
+  <ui.start>Activate sonar</ui.start>
+</infotexts>

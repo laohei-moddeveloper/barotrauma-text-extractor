@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<contentpackage name="AbyssTextLive · 译潜本地实时试译" corepackage="False" modversion="0.2.0">
+  <Text file="%ModDir%/Live/Translations.xml" />
+</contentpackage>

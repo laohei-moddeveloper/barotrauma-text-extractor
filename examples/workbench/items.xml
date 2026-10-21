@@ -1,0 +1,8 @@
+<Items>
+  <Item identifier="pressurekit" name="Pressure repair kit" description="Repairs hull damage. Keep [target] clear.">
+    <CustomInterface><Button text="Ready to depart" /></CustomInterface>
+    <Sprite texture="Textures/pressurekit.png" />
+  </Item>
+  <Affliction identifier="deepache" name="Deep pressure ache" description="Your joints hurt under pressure." />
+  <ScriptedEvent identifier="pressure"><ConversationAction text="event.pressurewarning"><Option text="Ready to depart" /></ConversationAction></ScriptedEvent>
+</Items>
