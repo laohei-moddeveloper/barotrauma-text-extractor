@@ -1,5 +1,6 @@
 # 译潜 AbyssText · 潜渊症汉化文字提取器
 
+[Steam Workshop / 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)
 **Extract first. Translate with context.**
 
 [下载 Windows 预发布版](https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.1.0) · [English](README_EN.md)

@@ -7,5 +7,7 @@
   "type": "external_tool",
   "visibility": "public",
   "source": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor",
-  "release": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.1.0"
+  "release": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.1.0",
+  "workshop_id": "3823861796",
+  "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796"
 }

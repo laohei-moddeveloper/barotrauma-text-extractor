@@ -1,0 +1,99 @@
+{
+  "project": "AbyssText",
+  "version": "0.1.0",
+  "date": "2026-10-21",
+  "repository": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor",
+  "release": {
+    "release": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.1.0",
+    "release_id": 419179917,
+    "tag": "v0.1.0",
+    "commit": "47541d2b2d776b881055c846028dc784292dca6b",
+    "assets": [
+      {
+        "name": "AbyssText-0.1.0-source.zip",
+        "bytes": 176166,
+        "url": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/download/v0.1.0/AbyssText-0.1.0-source.zip",
+        "digest": "sha256:308e959d63c45a6f36ab42d075497f00b868adeacb7a85cdf188ff8e2ef68817"
+      },
+      {
+        "name": "AbyssText-0.1.0-Windows-x64.zip",
+        "bytes": 12242310,
+        "url": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/download/v0.1.0/AbyssText-0.1.0-Windows-x64.zip",
+        "digest": "sha256:1ee12f3e7b9d7b223c79308e3d471d5f32a0e32fa7e9a19db3510c96be897c9c"
+      },
+      {
+        "name": "SHA256SUMS.txt",
+        "bytes": 193,
+        "url": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/download/v0.1.0/SHA256SUMS.txt",
+        "digest": "sha256:3a7c15266f5064920f02cefdfceeecad11bc0596e0184f53a336e606766adf0c"
+      }
+    ]
+  },
+  "workshop": {
+    "submitted_utc": "2026-10-21T05:12:20.6212599Z",
+    "title": "译潜 AbyssText | 模组文字提取器",
+    "visibility": "Public",
+    "needs_agreement": false,
+    "project": "barotrauma-text-extractor",
+    "bytes": 12243036,
+    "result": "OK",
+    "app_id": 602960,
+    "url": "https://steamcommunity.com/sharedfiles/filedetails/?source=Facepunch.Steamworks&id=3823861796",
+    "updated_utc": "2026-10-21T05:12:20.0000000Z",
+    "file_id": "3823861796",
+    "english_localization": "OK"
+  },
+  "release_downloads": [
+    {
+      "name": "AbyssText-0.1.0-source.zip",
+      "bytes": 176166,
+      "sha256": "308e959d63c45a6f36ab42d075497f00b868adeacb7a85cdf188ff8e2ef68817",
+      "verified": true
+    },
+    {
+      "name": "AbyssText-0.1.0-Windows-x64.zip",
+      "bytes": 12242310,
+      "sha256": "1ee12f3e7b9d7b223c79308e3d471d5f32a0e32fa7e9a19db3510c96be897c9c",
+      "verified": true
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 193,
+      "sha256": "3a7c15266f5064920f02cefdfceeecad11bc0596e0184f53a336e606766adf0c",
+      "verified": true
+    }
+  ],
+  "workshop_download": {
+    "directory": "D:\\steam\\steamapps\\workshop\\content\\602960\\3823861796",
+    "downloaded": true,
+    "zip_sha256": "1ee12f3e7b9d7b223c79308e3d471d5f32a0e32fa7e9a19db3510c96be897c9c",
+    "matches_upload": true,
+    "id": "3823861796"
+  },
+  "windows": {
+    "python": "3.12.14",
+    "pyinstaller": "6.20.0",
+    "tests_run": 25,
+    "passed": 24,
+    "skipped": 1,
+    "skip_reason": "Windows account lacks symbolic-link creation privilege",
+    "exe_gui_start": "passed",
+    "exe_json_example_entries": 15,
+    "exe_csv_example_rows": 15,
+    "full_gui_interaction": "not exercised"
+  },
+  "cloud": {
+    "environment": "潜渊症模组开发",
+    "persistent_repositories": 4,
+    "repository": "laohei-moddeveloper/barotrauma-text-extractor",
+    "workspace": "/workspace/barotrauma-text-extractor",
+    "published": true,
+    "snapshot_source_commit": "47541d2b2d776b881055c846028dc784292dca6b",
+    "ref_note": "Environment API pins the source SHA; default Git branch remains main. Fetch origin/main in later tasks for newer release records.",
+    "readme_read": "confirmed in environment editor",
+    "linux_checks": "environment editor reported 25 passed; separate from Windows results",
+    "github_integration_read": "fetch_file README.md succeeded; installed repository search returned repository with pull/push access",
+    "existing_repositories_preserved": true,
+    "other_environment_settings_preserved": true
+  }
+}

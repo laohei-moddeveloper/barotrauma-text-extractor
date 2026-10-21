@@ -1,5 +1,6 @@
 # AbyssText · Barotrauma Text Extractor
 
+[Steam Workshop / 创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)
 Extract first. Translate with context.
 
 A standalone, read-only text inventory tool for Barotrauma mod translators. Scan XML, Lua and C#; inspect source locations and extraction evidence; export CSV or JSON with an empty translation column.
