@@ -19,7 +19,7 @@ def verify(exe, output):
         candidate=root/'BarotraumaTextExtractor.exe'
         shutil.copy2(exe,candidate)
         env=os.environ.copy()
-        env['PATH']=str(Path(env['SystemRoot'])/'System32')
+        env['PATH']=str(Path(env['SYSTEMROOT'])/'System32')
         env.pop('PYTHONHOME',None);env.pop('PYTHONPATH',None)
         env['LOCALAPPDATA']=str(root/'AppData')
         def run(name,args,check,expected=0):

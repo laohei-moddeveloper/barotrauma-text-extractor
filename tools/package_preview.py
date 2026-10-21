@@ -37,7 +37,7 @@ def main():
                 raise SystemExit('Unexpected private/generated path')
         digest=hashlib.sha256(path.read_bytes()).hexdigest()
         sums.append(f'{digest}  {path.name}')
-    sums.append(hashlib.sha256(exe.read_bytes()).hexdigest()+'  BarotraumaTextExtractor.exe (inside Windows ZIP)')
+    (output/'EXE-SHA256.txt').write_text(hashlib.sha256(exe.read_bytes()).hexdigest()+'  BarotraumaTextExtractor.exe\n',encoding='ascii')
     (output/'SHA256SUMS.txt').write_text('\n'.join(sums)+'\n',encoding='ascii')
     print('\n'.join(sums))
 

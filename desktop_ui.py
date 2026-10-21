@@ -152,6 +152,7 @@ class WorkbenchWindow:
             self.install_project(project)
             self.status.set(f"{project.source_language} → {project.target_language} · {project.detection}")
         self.live_request=""
+        self.live_generate=False
         if self.bridge:self.write_live_preferences()
 
     def _style(self):

@@ -47,6 +47,17 @@ class OnlineWorkerTests(unittest.TestCase):
         self.assertGreater(window.live_failures[units[0].id]['retry_at'],time.monotonic())
         self.assertTrue(window.publish_live.called)
 
+    def test_language_change_stops_automatic_live_generation_until_new_request(self):
+        window=self.window()
+        window.target_language=SimpleNamespace(get=lambda:'French')
+        window.confirm_unsaved=lambda:True
+        window.install_project=lambda project:setattr(window,'project',project)
+        window.write_live_preferences=Mock()
+        window.change_languages()
+        self.assertEqual(window.project.target_language,'French')
+        self.assertFalse(window.live_generate);self.assertEqual(window.live_request,'')
+        window.poll_live();window.start_drafts.assert_not_called();window.publish_live.assert_not_called()
+
     def test_old_target_language_result_is_never_applied(self):
         window=self.window();unit=window.project.units[0]
         window.events.put(('drafts_scoped',{'session':'one','source':'English','target':'French','result':{unit.id:{'translation':'Wrong pair','issues':[]}}}))

@@ -268,6 +268,9 @@ class APITests(unittest.TestCase):
         groups=list(batches(units,max_items=10,max_chars=3000))
         self.assertEqual(sum(map(len,groups)),60)
         self.assertTrue(all(len(group)<=6 for group in groups))
+        for limit in (8,1000):
+            groups=list(batches([Unit(str(i),'short') for i in range(19)],max_items=limit))
+            self.assertEqual([len(group) for group in groups],[8,8,3])
 
 
 class LiveBridgeTests(unittest.TestCase):
