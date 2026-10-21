@@ -1,0 +1,8 @@
+<Items>
+  <Item identifier="abyssalmedkit" name="Abyssal Medkit" description="Treats [target]. Restores {0} health.">
+    <Sprite texture="Items/medkit.png" />
+    <TextDisplay text="MEDICAL SUPPLIES" />
+    <CustomInterface><Button text="Apply treatment" /></CustomInterface>
+  </Item>
+  <Item identifier="sonicprobe" />
+</Items>

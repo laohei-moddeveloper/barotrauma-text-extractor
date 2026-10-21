@@ -1,0 +1,5 @@
+<EventPrefabs>
+  <ScriptedEvent identifier="welcome">
+    <ConversationAction text="event.welcome"><Option text="Ready to depart." /></ConversationAction>
+  </ScriptedEvent>
+</EventPrefabs>

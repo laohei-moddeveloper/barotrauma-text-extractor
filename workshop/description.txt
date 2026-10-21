@@ -1,0 +1,17 @@
+[h1]译潜 AbyssText[/h1]
+先提取，再翻译。为潜渊症模组汉化整理原文、出处与上下文。
+
+• 扫描 XML / Lua / C#，区分直接文本、本地化引用与待核查候选。
+• 按文件与用途筛选，导出 CSV / JSON；只读源模组，不运行模组代码。
+• 独立 Windows 工具，无需在游戏内启用。下载后解压工具包，运行 EXE。
+
+0.1.0 预发布原型：不自动翻译、不回写译文，不保证提取全部可见文字。请检查诊断和原始文件。
+
+[h2]English[/h2]
+Extract first. Translate with context.
+A read-only text inventory for Barotrauma mod translators. Scan XML/Lua/C#, inspect source evidence, and export CSV/JSON.
+Standalone Windows utility — extract the package and launch the EXE; do not enable it as an in-game mod.
+Early prerelease: no automatic translation or write-back; coverage is not guaranteed.
+
+[url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor]Source / 源码[/url]
+[url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.1.0]Download / 下载[/url]

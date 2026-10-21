@@ -1,0 +1,4 @@
+<Afflictions>
+  <Affliction identifier="pressureache" name="Pressure ache" description="Your head is pounding." />
+  <StatusEffect type="OnUse" target="This" tags="internal.effect" />
+</Afflictions>

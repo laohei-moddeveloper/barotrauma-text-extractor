@@ -1,0 +1,11 @@
+{
+  "title": "译潜 AbyssText | 模组文字提取器",
+  "title_zh": "译潜 · 潜渊症汉化文字提取器",
+  "title_en": "AbyssText · Barotrauma Text Extractor",
+  "app_id": 602960,
+  "version": "0.1.0",
+  "type": "external_tool",
+  "visibility": "public",
+  "source": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor",
+  "release": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.1.0"
+}
