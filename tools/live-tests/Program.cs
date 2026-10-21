@@ -147,7 +147,7 @@ FlushTimers();commands.abyss_translate();FlushTimers()
 local seen={}
 for cycle=1,60 do
  local request=RequestData()
- assert(#request.records<=16)
+ assert(#request.records<=64)
  for _,record in ipairs(request.records) do if record.key:find('unseen.',1,true)==1 then seen[record.key]=true end end
  Response(request.request_id,tostring(cycle),true,{})
  Tick(3)

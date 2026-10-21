@@ -270,7 +270,7 @@ local function SendRequest()
         if not pending or record.priority==0 then candidates[#candidates+1]={identity=identity,record=record} end
     end
     table.sort(candidates,function(a,b) return a.record.priority<b.record.priority end)
-    for i=1,math.min(16,#candidates) do records[#records+1]=candidates[i].record end
+    for i=1,math.min(64,#candidates) do records[#records+1]=candidates[i].record end
     if #records == 0 then return end
     serial = serial + 1
     requestId = tostring(Timer.GetTime()) .. "." .. tostring(serial)
