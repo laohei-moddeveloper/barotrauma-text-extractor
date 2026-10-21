@@ -1,0 +1,33 @@
+{
+  "protocol": 1,
+  "exe_sha256": "fa9bc00dccd0046106171f07c26773c6c943345ea4f7d8469f3aa7aebe6806ea",
+  "game_tested": false,
+  "checks": [
+    {
+      "name": "read-only fixture scan",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "bundled companion integrity",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "existing companion refuses overwrite",
+      "exit_code": 1,
+      "passed": true
+    },
+    {
+      "name": "actual frozen HTTPS translation",
+      "exit_code": 0,
+      "passed": true
+    },
+    {
+      "name": "online output refuses overwrite",
+      "exit_code": 2,
+      "passed": true
+    }
+  ],
+  "passed": true
+}
