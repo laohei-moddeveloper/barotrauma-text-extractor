@@ -16,6 +16,12 @@ ALIASES = {
 NAMES = tuple(ALIASES)
 
 
+def already_target_chinese(text,source,target):
+    """Conservative no-overwrite rule for English -> Chinese game capture."""
+    return (canonical_language(source)=="English" and canonical_language(target) in {"Simplified Chinese","Traditional Chinese"}
+            and bool(re.search(r"[\u3400-\u9fff]",text)))
+
+
 def canonical_language(name):
     if name in {"Auto", "自动识别", "Auto-detect"}: return "Auto"
     folded=name.strip().casefold()

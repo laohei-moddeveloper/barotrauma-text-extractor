@@ -9,6 +9,11 @@ from free_online import translate_unit, TranslationCache
 
 
 class FreeOnlineTests(unittest.TestCase):
+    def test_existing_chinese_never_calls_network(self):
+        def forbidden(*args,**kwargs):raise AssertionError('Chinese entered network queue')
+        for text in ['已有中文','已有中文 English [name]']:
+            self.assertEqual(translate_unit(self.unit(text),'Simplified Chinese',forbidden)['one']['translation'],text)
+
     def test_persistent_cache_reuses_only_the_matching_language_pair(self):
         calls=[]
         def opener(request,timeout):

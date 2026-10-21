@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
-from languages import canonical_language
+from languages import canonical_language, already_target_chinese
 from extractor import Entry, Report
 from workbench import atomic_write, native_xml, source_id, quality
 
@@ -22,6 +22,7 @@ class LiveBridge:
         if self.data.is_symlink(): raise ValueError("桥接目录不能是符号链接")
         self.data.mkdir(exist_ok=True)
         self.seen = ""
+        self.session_id = ""
 
     def configure(self, ui_language, source_language, target_language):
         path=self.data/"settings.json"
@@ -54,10 +55,14 @@ class LiveBridge:
             text, key = record.get("text"), record.get("key","")
             if not isinstance(text,str) or not isinstance(key,str) or len(text)>20000: raise ValueError("无效的游戏内文字记录")
             if not text.strip() or not any(c.isalpha() for c in text): continue
+            if already_target_chinese(text,data.get('source_language','English'),data.get('target_language','Simplified Chinese')):continue
+            priority=record.get('priority',2 if key else 1)
+            if not isinstance(priority,int) or priority not in range(4):priority=2
             report.entries.append(Entry(source_id(text)+str(index),"<游戏内>",index+1,1,"游戏内显示","literal",text,
                 key=key,language=canonical_language(data.get("source_language","English")),context="当前已加载语言键" if key else "当前原生 GUI 控件文字",
-                evidence="LuaCs 客户端采集；动态文字只代表此次观察值",location={"native_key":key} if key else {}))
+                evidence="LuaCs 客户端采集；动态文字只代表此次观察值",location={"native_key":key,"live_priority":priority}))
         self.seen = digest
+        self.session_id=str(data.get('session_id',''))
         return report, bool(data.get("translate")), data.get("request_id",digest)
 
     def publish(self, project, request_id, drafts=False, complete=True):

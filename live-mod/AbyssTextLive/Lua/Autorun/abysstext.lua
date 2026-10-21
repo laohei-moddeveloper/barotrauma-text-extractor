@@ -7,6 +7,7 @@ local live = root .. "/Live/"
 local active, pending, dirty = false, false, false
 local nextPoll, nextSend, serial, nextSettings = 0, 0, 0, 0
 local requestId, revision = "", ""
+local sessionId = ""
 local translations, translatedValues, queued, sent, controls, originals = {}, {}, {}, {}, {}, {}
 local queuedCount, controlCount = 0, 0
 local queuedBytes, sentCount = 0, 0
@@ -94,15 +95,18 @@ local function Translated(text)
     if not translated then return nil end
     return translated:gsub("%[abyss_value_(%d+)%]",function(index) return values[tonumber(index)] or "" end)
 end
-local function Observe(text, key)
+local function Observe(text, key, priority)
     if not active or type(text) ~= "string" or #text < 2 or #text > 20000 then return end
     if text:find("译潜 · ",1,true)==1 or text:find("AbyssText · ",1,true)==1 then return end
+    if sourceLanguage=="English" and (targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[\228-\233][\128-\191][\128-\191]") then return end
     if not (text:match("%a") or text:match("[\128-\255]")) or translatedValues[text] or translations[text] then return end
     if key == nil or key == "" then text = Signature(text) end
     if translatedValues[text] or translations[text] then return end
     local identity = (key or "") .. "\0" .. text
-    if sent[identity] or queued[identity] or queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
-    queued[identity] = {text=text, key=key or ""}
+    priority=priority or (key and key~="" and 3 or 1)
+    if queued[identity] then queued[identity].priority=math.min(queued[identity].priority,priority);return end
+    if sent[identity] or queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
+    queued[identity] = {text=text, key=key or "",priority=priority}
     queuedCount = queuedCount + 1
     queuedBytes = queuedBytes + #text + #(key or "")
     dirty = true
@@ -182,7 +186,7 @@ local function CollectPrefabs()
                     local function QueueValue(value,key)
                         local text=TextValue(value)
                         local localized=targetLanguage=="Simplified Chinese" and text:find("[\228-\233][\128-\191][\128-\191]")
-                        if not localized then Observe(text,key) end
+                        if not localized then Observe(text,key,2) end
                     end
                     for _, field in ipairs({"Name","Description","CauseOfDeathDescription","SelfCauseOfDeathDescription","SuccessMessage","FailureMessage"}) do
                         pcall(function()
@@ -259,17 +263,25 @@ local function ApplyControls()
     end
 end
 local function SendRequest()
-    if not active or pending or not dirty then return end
+    if not active or not dirty then return end
     local records = {}
+    local candidates = {}
     for identity, record in pairs(queued) do
-        records[#records + 1] = record
+        if not pending or record.priority==0 then candidates[#candidates+1]={identity=identity,record=record} end
     end
-    if #records == 0 then dirty = false return end
+    table.sort(candidates,function(a,b) return a.record.priority<b.record.priority end)
+    for i=1,math.min(16,#candidates) do records[#records+1]=candidates[i].record end
+    if #records == 0 then return end
     serial = serial + 1
     requestId = tostring(Timer.GetTime()) .. "." .. tostring(serial)
-    File.Write(live .. "requests.json", json.serialize({protocol=1, request_id=requestId, translate=true, source_language=sourceLanguage, target_language=targetLanguage, records=records}))
-    for identity in pairs(queued) do sent[identity]=true; sentCount=sentCount+1 end
-    queued, queuedCount, queuedBytes, dirty, pending = {}, 0, 0, false, true
+    File.Write(live .. "requests.json", json.serialize({protocol=1, session_id=sessionId,request_id=requestId, translate=true, source_language=sourceLanguage, target_language=targetLanguage, records=records}))
+    for i=1,#records do
+        local identity=candidates[i].identity
+        sent[identity]=true;sentCount=sentCount+1
+        queuedBytes=queuedBytes-#queued[identity].text-#queued[identity].key
+        queued[identity]=nil;queuedCount=queuedCount-1
+    end
+    dirty,pending=queuedCount>0,true
     print("[AbyssTextLive] " .. Ui("已请求试译；请保持桌面工作台运行。条数：", "Translation requested. Keep the desktop workbench running. Records: ") .. #records)
 end
 local function Begin()
@@ -277,6 +289,7 @@ local function Begin()
     if not configured then Warn("settings", Ui("无法读取语言设置：", "Cannot read language settings: ") .. tostring(err)) end
     if sourceLanguage == targetLanguage then Warn("same", Ui("源语言与目标语言相同，请在桌面切换。", "Source and target languages match. Change them in the desktop workbench.")) return end
     active, pending = true, false
+    sessionId=tostring(Timer.GetTime())..".session."..tostring(serial+1)
     if not installed then InstallPatches() end
     UpdateButton()
     preload=coroutine.create(function()
@@ -318,6 +331,7 @@ local function Stop()
     end
     pcall(Hook.RemovePatch,"abysstext.controls","Barotrauma.GUI","AddToUpdateList",{"Barotrauma.GUIComponent"},Hook.HookMethodType.Before)
     pcall(Hook.RemovePatch,"abysstext.textdraw","Barotrauma.GUITextBlock","Draw",{"Microsoft.Xna.Framework.Graphics.SpriteBatch"},Hook.HookMethodType.Before)
+    pcall(Hook.RemovePatch,"abysstext.tooltip","Barotrauma.GUIComponent","DrawToolTip",{"Microsoft.Xna.Framework.Graphics.SpriteBatch","Barotrauma.RichString","Microsoft.Xna.Framework.Rectangle","Barotrauma.Anchor","Barotrauma.Pivot"},Hook.HookMethodType.Before)
     installed = false
     UpdateButton()
     local ok, err = pcall(RefreshLanguage, true)
@@ -358,6 +372,32 @@ InstallPatches = function()
             function(instance) CollectControls(instance) end, Hook.HookMethodType.Before)
     end)
     if not textOk then Warn("textdraw", Ui("动态文字控件接口不可用：", "Dynamic text-control API unavailable: ") .. tostring(textErr)) end
+    local tooltipOk,tooltipErr=pcall(function()
+        Hook.Patch("abysstext.tooltip","Barotrauma.GUIComponent","DrawToolTip",
+            {"Microsoft.Xna.Framework.Graphics.SpriteBatch","Barotrauma.RichString","Microsoft.Xna.Framework.Rectangle","Barotrauma.Anchor","Barotrauma.Pivot"},
+            function(_,parameters)
+                if not active or richString==nil then return end
+                local original=TextValue(parameters["toolTip"])
+                local function Segment(text)
+                    local leading,body,trailing=text:match("^(%s*)(.-)(%s*)$")
+                    if body=="" then return text end
+                    local translated=Translated(body)
+                    if translated then return leading..translated..trailing end
+                    Observe(body,nil,0);return text
+                end
+                local target=original:gsub("[^\r\n]+",function(line)
+                    local parts,pos={},1
+                    while true do
+                        local first,last=line:find("‖.-‖",pos)
+                        if not first then parts[#parts+1]=Segment(line:sub(pos));break end
+                        parts[#parts+1]=Segment(line:sub(pos,first-1));parts[#parts+1]=line:sub(first,last);pos=last+1
+                    end
+                    return table.concat(parts)
+                end)
+                if target~=original then parameters["toolTip"]=richString.Rich(target) end
+            end,Hook.HookMethodType.Before)
+    end)
+    if not tooltipOk then Warn("tooltip","Tooltip capture unavailable: "..tostring(tooltipErr)) end
     installed = true
 end
 Game.AddCommand("abyss_translate", "译潜：试译源语言 / Translate source text via desktop", Begin)
@@ -406,7 +446,7 @@ Hook.Add("think", "abysstext.live", function()
         -- The desktop writes atomically, but a sharing violation can still be transient.
         if not ok then Warn("poll", Ui("桥接刷新暂不可用：", "Bridge refresh temporarily unavailable: ") .. tostring(err)) end
     end
-    if not pending and now >= nextSend then
+    if now >= nextSend then
         nextSend = now + 2
         ResumePreload()
         local sentOk, sendError = pcall(SendRequest)

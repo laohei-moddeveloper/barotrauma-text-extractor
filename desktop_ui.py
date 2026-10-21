@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from extractor import Entry, Report, VERSION, scan
 from live_bridge import LiveBridge
-from languages import NAMES
+from languages import NAMES, already_target_chinese
 from translation_api import Settings, batches, translate, game_auto_allowed
 from free_online import PROVIDER as FREE_ONLINE, TranslationCache
 from workbench import Project, STATES, Unit, export_copy, export_csv, export_native, native_xml, source_id
@@ -81,6 +81,9 @@ class WorkbenchWindow:
         self.loading_editor = False
         self.bridge = None
         self.live_request = ""
+        self.live_session = ""
+        self.live_attempted = set()
+        self.live_generate = False
         self.live_drafts = tk.BooleanVar(value=True)
         self.live_online = tk.BooleanVar(value=False)
         self.online_cache=TranslationCache()
@@ -652,7 +655,7 @@ class WorkbenchWindow:
             return
         if units is None:
             units=[self.project.by_id[i] for i in self.table.selection()] if selected else self.project.filtered(self.search.get(),self.category,self.canon(self.state_filter.get()),self.include_candidates.get())
-        units=[u for u in units if not u.translation and u.state!="忽略"]
+        units=[u for u in units if not u.translation and u.state!="忽略" and not already_target_chinese(u.source,self.project.source_language,self.project.target_language)]
         if not units:self.status.set("范围内没有未翻译文本；已有译文不会自动覆盖。");return
         local_ids=self.project.draft_local(units)
         units=[u for u in units if not u.translation]
@@ -671,6 +674,7 @@ class WorkbenchWindow:
         settings=replace(self.api)
         provider=self.canon(self.provider.get())
         target_language=self.project.target_language
+        task_session=self.live_session
         # Only send relevant glossary, bounded independently of import size.
         sources="\n".join(u.source for u in units)
         glossary={k:v for k,v in self.project.glossary.items() if k in sources}
@@ -686,7 +690,8 @@ class WorkbenchWindow:
                             pending=[pool.submit(self.online_cache.translate,u,target_language,cancelled=self.cancel.is_set) for u in snapshots[start:start+4]]
                             for future in as_completed(pending):
                                 if self.cancel.is_set():break
-                                self.events.put(("drafts",future.result()))
+                                result=future.result()
+                                if not self.cancel.is_set() and task_session==self.live_session:self.events.put(("drafts",result))
                             self.online_cache.flush()
                     return
                 for group in batches(snapshots):
@@ -790,14 +795,24 @@ class WorkbenchWindow:
                     running="试译运行中" if status.get('active') else "试译已停止"
                     self.mode_label.set(f"{running} · 已采集 {status.get('submitted_records',0)} · 已译 {status.get('translated_records',0)}")
                     if status.get('last_error') and not self.busy:self.status.set('游戏桥接：'+str(status['last_error']))
-            if self.bridge and not self.busy:
+            if self.bridge:
                 request=self.bridge.read_request()
                 if request:
                     report,generate,self.live_request=request
+                    session=self.bridge.session_id
+                    changed_session=session!=self.live_session
+                    if changed_session:
+                        if self.busy:self.cancel.set()
+                        self.live_session=session
+                        self.live_attempted.clear()
+                    self.live_generate=generate
                     self.commit_editor()
                     if self.project:
-                        entries=list(self.project.report.entries)
-                        known={(e.file,e.key,e.text) for e in entries}
+                        entries=[e for e in self.project.report.entries if e.file!="<游戏内>" or not changed_session]
+                        known={(e.file,e.key,e.text):e for e in entries}
+                        for e in report.entries:
+                            old=known.get((e.file,e.key,e.text))
+                            if old is not None:old.location['live_priority']=min(old.location.get('live_priority',2),e.location.get('live_priority',2))
                         entries.extend(e for e in report.entries if (e.file,e.key,e.text) not in known)
                         report=Report(self.project.report.root,entries,
                             list(self.project.report.diagnostics),self.project.report.scanned,self.project.report.skipped,dict(self.project.report.fingerprints))
@@ -808,11 +823,20 @@ class WorkbenchWindow:
                     self.install_project(project)
                     allowed=self.canon(self.provider.get())==FREE_ONLINE or game_auto_allowed(self.api.endpoint,self.canon(self.provider.get())=="离线复用",self.live_online.get())
                     if generate and allowed:
-                        self.start_drafts(units=[u for u in project.units if any(e.file=="<游戏内>" for e in u.occurrences)])
+                        self.publish_live(complete=False)
                     elif generate:
                         self.status.set("请在翻译设置中开启游戏按钮联网，或使用离线/本机服务。")
                         self.publish_live()  # Acknowledge so the client can submit later requests.
                     else:self.publish_live()
+                if self.live_generate and not self.busy and self.project:
+                    allowed=self.canon(self.provider.get())==FREE_ONLINE or game_auto_allowed(self.api.endpoint,self.canon(self.provider.get())=="离线复用",self.live_online.get())
+                    if allowed:
+                        units=[u for u in self.project.units if not u.translation and u.state!="忽略" and u.id not in self.live_attempted and any(e.file=="<游戏内>" for e in u.occurrences)]
+                        units.sort(key=lambda u:min(e.location.get('live_priority',2) for e in u.occurrences if e.file=="<游戏内>"))
+                        batch=units[:4]
+                        self.live_attempted.update(u.id for u in batch)
+                        if batch:self.start_drafts(units=batch)
+                        else:self.publish_live()
         except (OSError,ValueError,KeyError,TypeError) as error:self.status.set("游戏桥接："+str(error))
         finally:self.root.after(1500,self.poll_live)
 
@@ -836,7 +860,7 @@ class WorkbenchWindow:
                     self.set_busy(False)
                     if kind=="draft_done":
                         self.reload_current_editor();self.refresh(reset_page=False);self.update_summary()
-                        if self.bridge and self.live_request:self.publish_live()
+                        if self.bridge and self.live_request:self.publish_live(complete=False)
                     if self.task_error:self.status.set("任务未全部完成："+self.task_error)
                 elif kind=="drafts" and self.project:
                     self.commit_editor()

@@ -271,6 +271,15 @@ class APITests(unittest.TestCase):
 
 
 class LiveBridgeTests(unittest.TestCase):
+    def test_chinese_filtered_and_session_priority_retained(self):
+        payload={'protocol':1,'request_id':'new','session_id':'session-two','translate':True,
+            'records':[{'text':'已有中文'},{'text':'中文 English'},{'text':'Spineling Head','priority':0}]}
+        (self.root/'Live/requests.json').write_text(json.dumps(payload),encoding='utf-8')
+        report,_,request=self.bridge.read_request()
+        self.assertEqual([e.text for e in report.entries],['Spineling Head'])
+        self.assertEqual(report.entries[0].location['live_priority'],0)
+        self.assertEqual((request,self.bridge.session_id),('new','session-two'))
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name)/"AbyssTextLive";self.root.mkdir()

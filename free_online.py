@@ -17,6 +17,7 @@ from urllib.error import HTTPError, URLError
 
 from workbench import quality
 from workbench import atomic_write
+from languages import already_target_chinese
 
 PROVIDER = "免配置联网翻译"
 CODES = dict(zip(
@@ -79,6 +80,8 @@ class TranslationCache:
 
 
 def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: False):
+    if already_target_chinese(unit.source,unit.source_language,target_language):
+        return {unit.id:{"translation":unit.source,"issues":[]}}
     source = CODES.get(unit.source_language)
     target = CODES.get(target_language)
     if not source or not target or source == target:

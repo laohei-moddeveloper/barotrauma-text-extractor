@@ -145,8 +145,9 @@ for i=1,700 do table.insert(TextManager.TextPacks.English[1].Texts,{Key='unseen.
 """, """
 FlushTimers();commands.abyss_translate();FlushTimers()
 local seen={}
-for cycle=1,10 do
+for cycle=1,60 do
  local request=RequestData()
+ assert(#request.records<=16)
  for _,record in ipairs(request.records) do if record.key:find('unseen.',1,true)==1 then seen[record.key]=true end end
  Response(request.request_id,tostring(cycle),true,{})
  Tick(3)
@@ -163,5 +164,19 @@ local texts={};for _,record in ipairs(RequestData().records) do texts[record.tex
 assert(texts['Next round mission'] and texts['Speak to the survivor'])
 local p={text='Tool'};patches['abysstext.draw.1'](nil,p);assert(p.text=='工具')
 commands.abyss_stop();Tick(3);assert(json.parse(disk[root..'/Live/status.json']).active==false)
+""");
+Check("Chinese excluded and rich tooltip prioritized during pending request", "", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+local first=RequestData().request_id
+local chinese={text='已经汉化 English'};patches['abysstext.draw.1'](nil,chinese)
+local p={toolTip='‖color:1,2,3‖Spineling Head‖color:end‖\nA hollow head.'}
+patches['abysstext.tooltip'](nil,p);Tick(3)
+local request=RequestData();assert(request.request_id~=first)
+local texts={};for _,record in ipairs(request.records) do texts[record.text]=true;assert(record.priority==0) end
+assert(texts['Spineling Head'] and texts['A hollow head.'] and not texts['已经汉化 English'])
+Response(request.request_id,'tooltip',true,{['Spineling Head']='尖刺怪头部',['A hollow head.']='空心头部。'});Tick(3)
+patches['abysstext.tooltip'](nil,p)
+assert(p.toolTip=='‖color:1,2,3‖尖刺怪头部‖color:end‖\n空心头部。',p.toolTip)
+commands.abyss_stop();assert(patches['abysstext.tooltip']==nil)
 """);
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

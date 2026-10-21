@@ -117,6 +117,28 @@ def main():
             while window.busy and time.monotonic()<deadline:pump(0.1)
         assert not window.busy and counts["peak"]<=2 and counts["calls"]==11, counts
         assert window.project.by_id[units[0].id].translation=="已有译文"
+        # A new live request must be acknowledged even while an older task is busy.
+        import json
+        from live_bridge import LiveBridge
+        plugin=Path(directory)/'AbyssTextLive';plugin.mkdir()
+        (plugin/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>')
+        window.bridge=LiveBridge(plugin);window.live_session='old';window.set_busy(True)
+        (plugin/'Live/requests.json').write_text(json.dumps({'protocol':1,'request_id':'latest',
+            'session_id':'new','translate':True,'records':[{'text':'已有中文'},{'text':'Spineling Head','priority':0}]}))
+        window.poll_live()
+        assert window.cancel.is_set() and window.live_request=='latest' and window.live_session=='new'
+        response=json.loads((plugin/'Live/response.json').read_text())
+        assert response['request_id']=='latest' and response['complete'] is False
+        assert '已有中文' not in [u.source for u in window.project.units]
+        window.events.put(('draft_done',None));pump(0.2)
+        with patch.object(window.online_cache,'translate',side_effect=mock_online):
+            window.poll_live()
+            deadline=time.monotonic()+5
+            while window.busy and time.monotonic()<deadline:pump(0.1)
+        window.poll_live()
+        response=json.loads((plugin/'Live/response.json').read_text())
+        assert response['complete'] and 'Spineling Head' in response['translations']
+        window.bridge=None;window.live_generate=False
         window.install_project(project);window.provider.set("离线复用");pump()
         root.geometry("1440x900");pump()
         if args.ui_language=="en":window.set_language("en");pump(0.6)
