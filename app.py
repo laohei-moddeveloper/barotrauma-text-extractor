@@ -19,7 +19,21 @@ def main():
     parser.add_argument("--install-live-mod",type=Path,help="安装内置插件到指定 LocalMods；拒绝覆盖已有目录")
     parser.add_argument("--check-online",type=Path,metavar='NEW_JSON',help="无窗口验证联网翻译，将结果写入新的 JSON 文件")
     parser.add_argument('--online-channel',choices=['mymemory','google'],default='mymemory',help='--check-online 的免费渠道；google 为实验网页兼容接口')
+    parser.add_argument('--import-human-memory',type=Path,metavar='MOD_LIBRARY',help='从本地模组及人工汉化包重建缓存，不执行模组脚本')
+    parser.add_argument('--cache-path',type=Path,help='人工缓存输出路径；默认 AppData/AbyssText/human-memory.sqlite3')
     args = parser.parse_args()
+    if args.cache_path and not args.import_human_memory:parser.error('--cache-path 需要 --import-human-memory')
+    if args.import_human_memory:
+        if args.folder or args.raw or args.check_online or args.install_live_mod or args.online_channel!='mymemory':parser.error('人工缓存导入不能与扫描/联网/安装组合')
+        import json
+        from human_memory import HumanMemory,import_folder
+        try:
+            if args.output and (args.output.exists() or args.output.is_symlink() or args.output.resolve().is_relative_to(args.import_human_memory.resolve())):raise ValueError('导入报告需要模组目录之外的新文件路径')
+            result=import_folder(args.import_human_memory,HumanMemory(args.cache_path))
+            if args.output:
+                with args.output.open('x',encoding='utf-8') as output:json.dump(result,output,ensure_ascii=False,indent=2)
+        except (OSError,ValueError) as error:parser.exit(1,str(error)+'\n')
+        return
     if args.online_channel!='mymemory' and not args.check_online:parser.error('--online-channel 仅用于 --check-online')
     if args.check_online:
         if args.check_online.exists() or args.check_online.is_symlink() or args.folder or args.output or args.install_live_mod or args.raw:

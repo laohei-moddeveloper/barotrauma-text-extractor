@@ -59,6 +59,19 @@ def main():
         with patch("tkinter.filedialog.asksaveasfilename",return_value=str(path)):
             assert window.save_project()
         assert Project.load(path).by_id[warning.id].state=="已校对"
+        # Offline human cache runs in a worker and never calls a service.
+        from human_memory import HumanMemory
+        bank=HumanMemory(Path(directory)/'human.sqlite3')
+        window.online_cache.human_memory=bank
+        bank.replace([('1234567890','entityname.phantom','Phantom Wrench','Simplified Chinese','幻影扳手','2861028841','s','t')],{})
+        human=Project(Report('fixture',[Entry('h','<游戏内>',1,1,'游戏内显示','literal','Phantom Wrench',
+            location={'native_key':'entityname.phantom','mod_id':'1234567890'})]),source_language='English')
+        window.install_project(human);pump()
+        window.start_drafts();pump(0.4)
+        assert human.units[0].translation=='幻影扳手' and not window.busy
+        assert window.online_cache.metrics['requests']==0
+        bank.close()
+        window.install_project(project);pump()
         # Bounded table rendering for large projects.
         report=Report(str(Path(directory)/"source"),[Entry(str(i),"bulk.xml",i+1,1,"语言表","literal",f"Text {i}",key=f"bulk.{i}",language="English") for i in range(3000)])
         window.install_project(Project(report));pump()

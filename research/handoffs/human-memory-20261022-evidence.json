@@ -1,0 +1,836 @@
+{
+  "packages": [
+    {
+      "id": "2861028841",
+      "name": "（老虎脱粒机汉化组整合）潜渊症模组汉化补丁整合包",
+      "version": "1.38.1",
+      "digest": "c362b309ca55a8627dac6a103f9bcd86a2ab145ad923937996efe9cc3f1c7b29"
+    },
+    {
+      "id": "2805317723",
+      "name": "NT Pharmacy CN Patch",
+      "version": "1.0.0",
+      "digest": "bbe56fe6fdbecc01a495a0dbccc395276d21c018e3b80b9c6a1ba6528998021f"
+    },
+    {
+      "id": "2806633031",
+      "name": "Functional Necrosis v7.0.41 CN",
+      "version": "7.0.42",
+      "digest": "7938b87d48833bcc0d0cd7061f8d9829dd093abb51556919591fd74f22c568eb"
+    },
+    {
+      "id": "2804370172",
+      "name": "More Artifacts 中文补丁",
+      "version": "1.0.20",
+      "digest": "29f514e3933b183f870bd8539b4e9236a774e0b84282735bcc1fcec51b89f9cf"
+    },
+    {
+      "id": "2838735559",
+      "name": "Aquatic Arsenal 中文版",
+      "version": "1.0.1",
+      "digest": "01535530919c4fa49a4e5fd9fd031bd55acf53fe64e4df81a49a477283304f98"
+    },
+    {
+      "id": "2856700611",
+      "name": "Enhanced Armaments 中文补丁",
+      "version": "1.1.35",
+      "digest": "5bfc00c91939d130719dfe0c938e0af6387841728e5c3ffea939b6e90d39858c"
+    },
+    {
+      "id": "2523120046",
+      "name": "TheEntropy",
+      "version": "4.94",
+      "digest": "39adfe6de30902f2b7130450b240e6660d136a032924c03bf7660b2f86f4a6d2"
+    },
+    {
+      "id": "2800951730",
+      "name": "NeuroEyes CN Patch",
+      "version": "1.0.1",
+      "digest": "cf9ce6c40b9cf413a2176818e46719565d5ec9840c9f25bcc679d6f78350aa60"
+    },
+    {
+      "id": "2805387059",
+      "name": "NT Surgery Plus CN Patch",
+      "version": "1.0.0",
+      "digest": "dee7ec1fdce2e536d42147a7ea07fde123b8d33f48aaf6c118e9eb4da3f4b5fb"
+    },
+    {
+      "id": "2859087590",
+      "name": "Life of a sailor 中文补丁",
+      "version": "1.0.2",
+      "digest": "cd020f54ffae3ba2b6fd30b3902df048f2a12360fd8ae29d461985b3109bf779"
+    },
+    {
+      "id": "2526236489",
+      "name": "JobsExtended",
+      "version": "1.0.65",
+      "digest": "c5181a7fefbc2f098fffa1c56965d027df759179bcbdb3b74599c44c965b5af7"
+    },
+    {
+      "id": "2838151802",
+      "name": "Backpack CN Patch",
+      "version": "1.0.0",
+      "digest": "cf1055b78471f66651435b38a733507ef561133c92235bff032330e33b4b3484"
+    },
+    {
+      "id": "2801386581",
+      "name": "Ammo Mod 中文补丁",
+      "version": "1.0.11",
+      "digest": "222b98ff4058d5b6ad585c826210ab844dfc70fbaa3abd9336cbe49d6d458cef"
+    },
+    {
+      "id": "2805809231",
+      "name": "T.I.T.A.N. ₂.₀ CN Patch",
+      "version": "1.0.0",
+      "digest": "cd52b61cf64edca6653ffa627b8429d9335fa5f67c388b9bed80f5cb1b73ee84"
+    },
+    {
+      "id": "2805879592",
+      "name": "NOATUN 简体中文补丁",
+      "version": "1.0.3",
+      "digest": "5d3ee68d3d3c2bc7ee409607f37c4007f8443c1dafc38143178d505e2fb9da0d"
+    },
+    {
+      "id": "2855722971",
+      "name": "Playable Mudraptor (Magenta Mix) CN Patch",
+      "version": "1.0.1",
+      "digest": "47df539fa00d771d5399dd338121f1c3e720c9c01eac8c387f467eeaf40b48a8"
+    },
+    {
+      "id": "2804861671",
+      "name": "Fumo Mod 中文补丁",
+      "version": "1.0.1",
+      "digest": "fb5ad36d225e3d625de73f0217cfa4b999083f14a980275aebab45d3e573fadd"
+    },
+    {
+      "id": "2862196475",
+      "name": "BaroPlus 中文补丁",
+      "version": "1.0.0",
+      "digest": "9a92027ae475043c0ffb2c382a4cdef3eff50f39419be30962d445d2eaf36fbc"
+    },
+    {
+      "id": "2800925826",
+      "name": "Cybernetics CN Patch",
+      "version": "1.0.0",
+      "digest": "d415e8289ff5ad87e6f1d69095151655c576d5c063dcd6070d17af9e79d4a2c4"
+    },
+    {
+      "id": "2800873233",
+      "name": "Neurotrauma 中文补丁",
+      "version": "1.0.10",
+      "digest": "e515707caafd7377f81cbc46215ffd5b197209f052c0244357836555d615fb74"
+    },
+    {
+      "id": "2775613786",
+      "name": "Multiplayer crew manager",
+      "version": "2.2.3",
+      "digest": "ae71ade5d4616aed67a95e4ce12d0a00f7c47d3ac14f159e0e6c86d3cf5773d2"
+    },
+    {
+      "id": "2848527408",
+      "name": "Playable Mudraptor Job",
+      "version": "1.0.8",
+      "digest": "219f3181cd370e878a78037b95d95d75f083bd12bc78b2ba9ba31586c38c0531"
+    },
+    {
+      "id": "2903874280",
+      "name": "More Unique Weapons 中文补丁",
+      "version": "1.0.3",
+      "digest": "c468c7834e936978ca04178bc2f07ca0c5a230ee0b1d66b72287ceb612fa1a1b"
+    },
+    {
+      "id": "2295165270",
+      "name": "[CNEN]Peko items [Urban Expanses Update]",
+      "version": "1.0.3",
+      "digest": "8fc849d2001f2fd0a0e6202accc77e1f6851a3d99fb00635967cc0545a7a00e7"
+    },
+    {
+      "id": "2839059182",
+      "name": "Vanilla Arsenal Expansion CN Patch",
+      "version": "1.0.1",
+      "digest": "0baef78953e27b83d7f086466f8d3b5ef5073488e24ef88529638b6aaa30d292"
+    },
+    {
+      "id": "3217556378",
+      "name": "Immersive Ignitables",
+      "version": "1.0.11",
+      "digest": "a88b72029787b5baeb802fd9914dea5858eb587fabc9ac3aff5a041dc52a085e"
+    },
+    {
+      "id": "1946765892",
+      "name": "EK Utilities",
+      "version": "1.0.3",
+      "digest": "4a0701e9f98ce48be18b30059c1f56cf33874d610af55882f6596b5a7bfcf56a"
+    },
+    {
+      "id": "2816829606",
+      "name": "Vanilla Arsenal Expansion",
+      "version": "0.9",
+      "digest": "122690e912b8ab44b621440ca44460b05dc01d64c1332cacd7bdc6df264745de"
+    },
+    {
+      "id": "2835053375",
+      "name": "The Backrooms 2.0",
+      "version": "1.0.35",
+      "digest": "f110bbd85bcf30e4dba8c338b439f8669f5618eaa265fc5b8ce6f3da1ac7af8d"
+    },
+    {
+      "id": "2645362256",
+      "name": "BaroPlus",
+      "version": "1.0.33",
+      "digest": "2500ff975b9a48b4a36e700ff46bee5ac0442cbf80a17228365766b6b282b5ea"
+    },
+    {
+      "id": "3460834908",
+      "name": "Lethal Company Gamemode",
+      "version": "2.23",
+      "digest": "6b552fe96f39bb73d44dd92e582121a099720f037400c866765d558d18c86b91"
+    },
+    {
+      "id": "2954998725",
+      "name": "Hungry Europans",
+      "version": "2.0.49",
+      "digest": "a870f0608f7db9e9cd1c7de75889912adf71613e7bafb3871165f7c1d4c5046b"
+    },
+    {
+      "id": "2613901395",
+      "name": "Backpacks",
+      "version": "2.1",
+      "digest": "2c6815692686fb837967381bdac65a95c7fec9daefcb5ef6458eaa313c5dcda2"
+    },
+    {
+      "id": "2929084649",
+      "name": "NEEDS",
+      "version": "1.2.8",
+      "digest": "02d5d74aa8b796fbebfbf55f63b4bb17cc6506adbe8525b90025bfd5f627b4c6"
+    },
+    {
+      "id": "3343911734",
+      "name": "Smarter Bot AI",
+      "version": "1.7.2a",
+      "digest": "6b625d068faf08e2d6110d272f979a6ec5d20eec00968f1e167744ae5183e104"
+    },
+    {
+      "id": "2547888957",
+      "name": "Hazardous Reactors",
+      "version": "1.0.10",
+      "digest": "e9d73fe47a576b0a24d8b75870a0d9c58e4f6074e9888bdcedd566e717b352ae"
+    },
+    {
+      "id": "2742414355",
+      "name": "Ammo Mod",
+      "version": "1.0.34",
+      "digest": "228b0d564ed96c4304763dd94cd293e48d07c77a6d81d45491e5f9a110200f56"
+    },
+    {
+      "id": "2954237072",
+      "name": "EK Mods for 1.x.x.x",
+      "version": "1.2.4",
+      "digest": "c5e29d4e5b38d628bb625941f168310fa553f914c83d84471da6138a68f5609e"
+    },
+    {
+      "id": "3169653196",
+      "name": "Anomalous Artefacts",
+      "version": "1.0.51",
+      "digest": "81d6bc90de3942fb198c9814c7accd36d53ebd0c79c47c7fb4d4c1c53a02e670"
+    },
+    {
+      "id": "2804594280",
+      "name": "Life Of A Sailor",
+      "version": "1.0.16",
+      "digest": "c280ae3beed55b40832733690cdc6dd689d5d3387891abc68a2066c8db3c93c3"
+    },
+    {
+      "id": "1769403760",
+      "name": "EK Armory",
+      "version": "1.0.6",
+      "digest": "841ded0b7480307b7e12e235fbf0068a444695b6049d876962aa0f0f522b80e1"
+    },
+    {
+      "id": "2631438320",
+      "name": "Nanite Integration",
+      "version": "1.0.1",
+      "digest": "01be13535f177d8722bf8a54a6bb1c2b4340453bab14027c68f4b49d89064ec3"
+    },
+    {
+      "id": "2852819097",
+      "name": "Playable Mudraptor (Magenta Mix)",
+      "version": "1.1.4",
+      "digest": "fab53a49d5ade0fcc38178d49324e87d56cc34efb56f7fe1c8f767a96c28d235"
+    },
+    {
+      "id": "3463737539",
+      "name": "Nosophobia",
+      "version": "1.28",
+      "digest": "75d385147b41d0b971854b5342e8d799d924274bc01e6a9a4a6df617eec0dde7"
+    },
+    {
+      "id": "3190189044",
+      "name": "Neurotrauma",
+      "version": "1.0.38",
+      "digest": "aafe3e354fd318beb58e61b300a63e8ee0351fc442b953158a49e22bc5ede204"
+    },
+    {
+      "id": "2799697127",
+      "name": "T.I.T.A.N. power suit",
+      "version": "1.0.8",
+      "digest": "7f797fd42180f87f1d36ea5b38d3cd1fd1f6f87b0662fa8fa67c01fdf6019861"
+    },
+    {
+      "id": "2776026770",
+      "name": "More Arts (AOCS)",
+      "version": "1.516",
+      "digest": "4760d4ba86ab34b325eca23a512d8228a5700b31fe0ac868ab2f824e8360c71c"
+    },
+    {
+      "id": "2390137099",
+      "name": "EK Dockyard",
+      "version": "1.0.5",
+      "digest": "d2e17a1287077a04d21777270ed6e3601363b7e69795ed9c064cd28f1bcb5e2e"
+    },
+    {
+      "id": "3286567141",
+      "name": "NT Infections",
+      "version": "1.5.7",
+      "digest": "e218ddd97f67b74405ff0663ffb45637cf7b92e8662c1a2ca2225714167043b6"
+    },
+    {
+      "id": "3434408634",
+      "name": "Abnormalities",
+      "version": "2.1.597",
+      "digest": "98456a4b80c0e427a04864fa517cdc9c7e6f0c2ae5df1050c13d8ad7da4d21b3"
+    },
+    {
+      "id": "2390126010",
+      "name": "EK Gunnery",
+      "version": "1.0.6",
+      "digest": "731fac38b0c870aba8dc747804349db896d9cb58beed7bac164434d3e3425ca4"
+    },
+    {
+      "id": "2721301040",
+      "name": "Fumo Mod",
+      "version": "",
+      "digest": "a0dc72074dc8cca80dca287a125efc0ac0c16325be3215b546b5f0e5862d4a71"
+    },
+    {
+      "id": "2764968387",
+      "name": "Enhanced Armaments",
+      "version": "1.42",
+      "digest": "aee021789c1d62695679d200cf98542f97f5b7787e15cdade7ab36a427759042"
+    },
+    {
+      "id": "2688101136",
+      "name": "NOATUN",
+      "version": "1.0.1",
+      "digest": "b4271666e4be985635267a5da37b90509b820837e746c782323ac0f7af6b01c5"
+    }
+  ],
+  "routes": [
+    {
+      "provider": "2861028841",
+      "scope": "2776026770",
+      "language": "Simplified Chinese",
+      "matched": 851
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2776026770",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3190189044",
+      "language": "Simplified Chinese",
+      "matched": 456
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3190189044",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3286567141",
+      "language": "Simplified Chinese",
+      "matched": 155
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3286567141",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3169653196",
+      "language": "Simplified Chinese",
+      "matched": 525
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3169653196",
+      "language": "Traditional Chinese",
+      "matched": 529
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2764968387",
+      "language": "Simplified Chinese",
+      "matched": 1158
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2764968387",
+      "language": "Traditional Chinese",
+      "matched": 1145
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2547888957",
+      "language": "Simplified Chinese",
+      "matched": 115
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2547888957",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3460834908",
+      "language": "Simplified Chinese",
+      "matched": 48
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3460834908",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3434408634",
+      "language": "Simplified Chinese",
+      "matched": 2021
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3434408634",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3463737539",
+      "language": "Simplified Chinese",
+      "matched": 72
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3463737539",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3343911734",
+      "language": "Simplified Chinese",
+      "matched": 99
+    },
+    {
+      "provider": "2861028841",
+      "scope": "3343911734",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2954998725",
+      "language": "Simplified Chinese",
+      "matched": 1165
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2954998725",
+      "language": "Traditional Chinese",
+      "matched": 940
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2742414355",
+      "language": "Simplified Chinese",
+      "matched": 142
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2742414355",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2613901395",
+      "language": "Simplified Chinese",
+      "matched": 30
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2613901395",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "1946765892",
+      "language": "Simplified Chinese",
+      "matched": 313
+    },
+    {
+      "provider": "2861028841",
+      "scope": "1946765892",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "1769403760",
+      "language": "Simplified Chinese",
+      "matched": 469
+    },
+    {
+      "provider": "2861028841",
+      "scope": "1769403760",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2390126010",
+      "language": "Simplified Chinese",
+      "matched": 349
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2390126010",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2390137099",
+      "language": "Simplified Chinese",
+      "matched": 415
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2390137099",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2804594280",
+      "language": "Simplified Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2804594280",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2688101136",
+      "language": "Simplified Chinese",
+      "matched": 170
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2688101136",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2852819097",
+      "language": "Simplified Chinese",
+      "matched": 90
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2852819097",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2835053375",
+      "language": "Simplified Chinese",
+      "matched": 65
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2835053375",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2799697127",
+      "language": "Simplified Chinese",
+      "matched": 24
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2799697127",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2816829606",
+      "language": "Simplified Chinese",
+      "matched": 17
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2816829606",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2645362256",
+      "language": "Simplified Chinese",
+      "matched": 170
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2645362256",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2631438320",
+      "language": "Simplified Chinese",
+      "matched": 50
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2631438320",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2804370172",
+      "scope": "2776026770",
+      "language": "Simplified Chinese",
+      "matched": 762
+    },
+    {
+      "provider": "2804370172",
+      "scope": "2776026770",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2801386581",
+      "scope": "2742414355",
+      "language": "Simplified Chinese",
+      "matched": 80
+    },
+    {
+      "provider": "2801386581",
+      "scope": "2742414355",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2805879592",
+      "scope": "2688101136",
+      "language": "Simplified Chinese",
+      "matched": 170
+    },
+    {
+      "provider": "2805879592",
+      "scope": "2688101136",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2805809231",
+      "scope": "2799697127",
+      "language": "Simplified Chinese",
+      "matched": 24
+    },
+    {
+      "provider": "2805809231",
+      "scope": "2799697127",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2804861671",
+      "scope": "2721301040",
+      "language": "Simplified Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2804861671",
+      "scope": "2721301040",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2838151802",
+      "scope": "2613901395",
+      "language": "Simplified Chinese",
+      "matched": 30
+    },
+    {
+      "provider": "2838151802",
+      "scope": "2613901395",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2839059182",
+      "scope": "2816829606",
+      "language": "Simplified Chinese",
+      "matched": 17
+    },
+    {
+      "provider": "2839059182",
+      "scope": "2816829606",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2855722971",
+      "scope": "2852819097",
+      "language": "Simplified Chinese",
+      "matched": 87
+    },
+    {
+      "provider": "2855722971",
+      "scope": "2852819097",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2859087590",
+      "scope": "2804594280",
+      "language": "Simplified Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2859087590",
+      "scope": "2804594280",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2856700611",
+      "scope": "2764968387",
+      "language": "Simplified Chinese",
+      "matched": 1025
+    },
+    {
+      "provider": "2856700611",
+      "scope": "2764968387",
+      "language": "Traditional Chinese",
+      "matched": 1025
+    },
+    {
+      "provider": "2862196475",
+      "scope": "2645362256",
+      "language": "Simplified Chinese",
+      "matched": 170
+    },
+    {
+      "provider": "2862196475",
+      "scope": "2645362256",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2295165270",
+      "scope": "2295165270",
+      "language": "Simplified Chinese",
+      "matched": 115
+    },
+    {
+      "provider": "2295165270",
+      "scope": "2295165270",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2523120046",
+      "scope": "2523120046",
+      "language": "Simplified Chinese",
+      "matched": 254
+    },
+    {
+      "provider": "2523120046",
+      "scope": "2523120046",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2526236489",
+      "scope": "2526236489",
+      "language": "Simplified Chinese",
+      "matched": 122
+    },
+    {
+      "provider": "2526236489",
+      "scope": "2526236489",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2848527408",
+      "scope": "2848527408",
+      "language": "Simplified Chinese",
+      "matched": 26
+    },
+    {
+      "provider": "2848527408",
+      "scope": "2848527408",
+      "language": "Traditional Chinese",
+      "matched": 0
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2954237072",
+      "language": "Simplified Chinese",
+      "matched": 1540
+    },
+    {
+      "provider": "2861028841",
+      "scope": "2954237072",
+      "language": "Traditional Chinese",
+      "matched": 0
+    }
+  ],
+  "issues": [],
+  "rejected_quality": 547,
+  "ambiguous_keys": 920,
+  "records": 17030,
+  "build_seconds": 1.853,
+  "distinct_scoped_pairs": 13642,
+  "conflicting_scoped_pairs": 171,
+  "verified_simplified_matches": 10994,
+  "http_requests": 0,
+  "lookup_ms": {
+    "median": 0.016890997358132154,
+    "p95": 0.03459700383245945,
+    "max": 1.105158000427764
+  }
+}

@@ -266,6 +266,7 @@ class WorkbenchWindow:
         ttk.Checkbutton(sidebar,text="显示待核查候选",variable=self.include_candidates,command=self.refresh).pack(anchor="w")
         ttk.Checkbutton(sidebar,text="按清单筛选 XML",variable=self.registered_only).pack(anchor="w")
         ttk.Label(sidebar,text="去重后的一行原文\n仍保留每个来源位置。",style="Muted.TLabel",justify="left").pack(anchor="w",pady=12)
+        ttk.Button(sidebar,text="导入工坊人工汉化缓存…",command=self.import_human_cache).pack(fill="x",pady=3)
         ttk.Button(sidebar,text="导入术语 / 译文表",command=self.import_table).pack(fill="x",pady=3)
         ttk.Button(sidebar,text="新增本地化词条",command=self.add_unit).pack(fill="x",pady=3)
         ttk.Button(sidebar,text="诊断 / 未解析引用",command=self.show_diagnostics).pack(fill="x",pady=3)
@@ -688,7 +689,7 @@ class WorkbenchWindow:
         units=[u for u in units if not u.translation]
         self.reload_current_editor()
         self.refresh(reset_page=False);self.update_summary()
-        if self.canon(self.provider.get())=="离线复用" or not units:
+        if not units:
             self.status.set(f"复用 {len(local_ids)} 条译文；{len(units)} 条尚无匹配。可配置已安装的本地 AI 继续生成。")
             self.reload_current_editor()
             if self.bridge and self.live_request:self.publish_live()
@@ -699,8 +700,8 @@ class WorkbenchWindow:
         self.live_worker=live
         self.task_error=""
         channel=self.online_channel.get()
-        destination=CHANNEL_LABELS[channel] if self.canon(self.provider.get())==FREE_ONLINE else self.api.endpoint
-        self.status.set(f"发送 {len(units)} 条去重原文到 {destination}；生成后仍需校对。")
+        destination=CHANNEL_LABELS[channel] if self.canon(self.provider.get())==FREE_ONLINE else ("仅本地复用" if self.canon(self.provider.get())=="离线复用" else self.api.endpoint)
+        self.status.set(f"先查本地人工缓存；{len(units)} 条待处理，未命中使用 {destination}。")
         snapshots=[replace(u,occurrences=list(u.occurrences)) for u in units]
         settings=replace(self.api)
         provider=self.canon(self.provider.get())
@@ -725,7 +726,14 @@ class WorkbenchWindow:
                             'error':safe_error(error),'retry_after':getattr(error,'retry_after',0)})),
                         lambda message:self.events.put(('draft_warning',{**scope,'error':message})),glossary=glossary,channel=channel,feed=feed,deferred=lambda ids:self.events.put(('draft_deferred',{**scope,'ids':ids})))
                     return
-                for group in batches(snapshots):
+                remaining=[]
+                for unit in snapshots:
+                    if task_cancel.is_set():return
+                    result=self.online_cache.human_match(unit,target_language,glossary)
+                    if result:self.events.put(('drafts_scoped',{**scope,'result':result}))
+                    else:remaining.append(unit)
+                if provider=="离线复用":return
+                for group in batches(remaining):
                     if task_cancel.is_set():break
                     result=translate(settings,group,glossary,target_language=target_language)
                     if task_cancel.is_set():break
@@ -793,6 +801,20 @@ class WorkbenchWindow:
             except (OSError,ValueError) as error:self.error(error)
         ttk.Button(frame,text="安装到 LocalMods（新目录）",command=install,style="Accent.TButton").pack(fill="x",pady=6)
         ttk.Button(frame,text="连接已安装插件",command=connect).pack(fill="x",pady=6)
+
+    def import_human_cache(self):
+        if self.busy:return
+        path=filedialog.askdirectory(title="选择 WorkshopMods/Installed 或 steamapps/workshop/content/602960（含原模组及汉化包）")
+        if not path:return
+        self.set_busy(True)
+        self.status.set("正在后台核对人工汉化原文与格式；不会执行模组脚本…")
+        def worker():
+            try:
+                from human_memory import import_folder
+                result=import_folder(path,self.online_cache.human_memory)
+                self.events.put(('human_memory_done',result))
+            except Exception as error:self.events.put(('human_memory_error',str(error)))
+        threading.Thread(target=worker,daemon=True).start()
 
     def select_live(self,path=None):
         path=path or filedialog.askdirectory(title=self.tr('选择游戏 LocalMods 中已安装的 AbyssTextLive 插件目录'))
@@ -946,7 +968,12 @@ class WorkbenchWindow:
                         self.diagnostics.record('failed',uid,error=value['error'],attempts=attempts)
                         self.status.set('单条翻译失败，其他条目继续：'+value['error'])
                         continue
-                if kind=="progress":self.status.set(value)
+                if kind=="human_memory_done":
+                    self.set_busy(False)
+                    self.status.set(f"本地人工汉化缓存：{value['records']} 条；未匹配条目仍使用所选翻译渠道")
+                elif kind=="human_memory_error":
+                    self.set_busy(False);self.status.set("人工汉化缓存导入失败："+value)
+                elif kind=="progress":self.status.set(value)
                 elif kind=="project":
                     self.commit_editor()
                     if self.project and value.report.root==self.project.report.root and (value.source_language,value.target_language)==(self.project.source_language,self.project.target_language):

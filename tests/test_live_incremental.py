@@ -21,6 +21,14 @@ class IncrementalBridgeTests(unittest.TestCase):
         self.root=Path(self.temp.name);(self.root/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>',encoding='utf-8')
         self.bridge=LiveBridge(self.root)
 
+    def test_mod_scope_is_validated_and_preserved(self):
+        packet={'protocol':1,'session_id':'scope','request_id':'1','records':[{'text':'Ghost Tool','mod_id':'1234567890'}]}
+        path=self.root/'Live/requests.json';path.write_text(json.dumps(packet))
+        report,_,_=self.bridge.read_request()
+        self.assertEqual(report.entries[0].location['mod_id'],'1234567890')
+        packet['records'][0]['mod_id']='../bad';packet['request_id']='2';path.write_text(json.dumps(packet))
+        with self.assertRaisesRegex(ValueError,'来源'):self.bridge.read_request()
+
     def project(self,n):
         project=Project(Report('fixture',[entry('Unseen item '+str(i)) for i in range(n)]))
         for unit in project.units:project.update(unit.id,'物品 '+unit.source.split()[-1])

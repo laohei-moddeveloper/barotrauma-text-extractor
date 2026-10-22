@@ -52,6 +52,24 @@ def verify(exe, output):
         snapshot={n:(installed/n).read_bytes() for n in required} if installed.is_dir() else {}
         run('existing companion refuses overwrite',['--install-live-mod',mods],lambda:
             snapshot and all((installed/n).read_bytes()==data for n,data in snapshot.items()),expected=1)
+        # A real frozen import verifies the bundled registry and SQLite module.
+        human_root=root/'HumanFixtures';human_root.mkdir()
+        for mod_id,language,text in [('1234567890','English','Phantom Wrench'),('2861028841','Simplified Chinese','幻影扳手')]:
+            package=human_root/mod_id;package.mkdir()
+            filename='Inactive/AmmoModSC.xml' if mod_id=='2861028841' else 'text.xml'
+            target=package/filename;target.parent.mkdir(parents=True,exist_ok=True)
+            (package/'filelist.xml').write_text(f'<contentpackage steamworkshopid="{mod_id}"><Text file="%ModDir%/{filename}"/></contentpackage>',encoding='utf-8')
+            target.write_text(f'<infotexts language="{language}"><entityname.phantom>Phantom Wrench</entityname.phantom></infotexts>'.replace('Phantom Wrench',text),encoding='utf-8')
+        # Registry routes Ammo Mod to its real owner ID, not this fixture ID.
+        (human_root/'1234567890'/'filelist.xml').write_text('<contentpackage steamworkshopid="2742414355"><Text file="%ModDir%/text.xml"/></contentpackage>',encoding='utf-8')
+        human_bank=root/'human.sqlite3';human_report=root/'human.json'
+        def check_human_import():
+            if not human_report.is_file():return False
+            import sqlite3
+            with sqlite3.connect(human_bank) as bank:
+                rows=bank.execute('SELECT scope,source,translation FROM pairs').fetchall()
+            return json.loads(human_report.read_text(encoding='utf-8'))['records']==1 and rows==[('2742414355','Phantom Wrench','幻影扳手')]
+        run('actual frozen human-memory import',['--import-human-memory',human_root,'--cache-path',human_bank,'-o',human_report],check_human_import)
         online=root/'online.json'
         def check_online():
             if not online.is_file():return False

@@ -61,11 +61,13 @@ def shields_intact(source,translated):
 
 class TranslationCache:
     """Bounded full-text + fragment cache with coalesced concurrent requests."""
-    def __init__(self,path=None):
+    def __init__(self,path=None,human_memory=None):
+        from human_memory import HumanMemory
+        self.human_memory=human_memory if human_memory is not None else HumanMemory()
         self.path=Path(path) if path else Path(os.environ.get('LOCALAPPDATA',str(Path.home()/'.config')))/'AbyssText'/'online-cache.json'
         self.lock=threading.Lock();self.save_lock=threading.Lock()
         self.rows={};self.flights={};self.bytes=0;self.dirty=False;self.version=0;self.last_flush=0
-        self.metrics={'requests':0,'fragment_hits':0,'unit_hits':0,'local_terms':0,'coalesced':0}
+        self.metrics={'requests':0,'fragment_hits':0,'unit_hits':0,'local_terms':0,'coalesced':0,'human_hits':0}
         try:
             if self.path.is_file() and not self.path.is_symlink() and self.path.stat().st_size<=8*1024*1024:
                 data=json.loads(self.path.read_text(encoding='utf-8'))
@@ -123,8 +125,17 @@ class TranslationCache:
             with self.lock:
                 self.flights.pop(key,None);flight['event'].set()
 
+    def human_match(self,unit,target,glossary=None):
+        # Explicit user terminology always outranks imported third-party text.
+        if any(str(k).casefold() in unit.source.casefold() for k in (glossary or {})):return None
+        return self.human_memory.lookup(unit,target)
+
     def translate(self,unit,target,opener=urlopen,cancelled=lambda:False,glossary=None,channel="mymemory"):
         if cancelled():raise ValueError('翻译已取消；当前条目未写入。')
+        human=self.human_match(unit,target,glossary)
+        if human is not None:
+            with self.lock:self.metrics['human_hits']+=1
+            return human
         key=self.key(unit,target,glossary,channel)
         with self.lock:cached=self.rows.get(key)
         if cached is not None and not quality(unit.source,cached):
@@ -169,7 +180,7 @@ class TranslationCache:
             if cancelled():return output
             key=self.key(unit,target,terms,channel)
             with self.lock:cached=self.rows.get(key)
-            if (cached is not None and not quality(unit.source,cached)) or not self.can_batch_name(unit,target,terms):
+            if self.human_match(unit,target,terms) is not None or (cached is not None and not quality(unit.source,cached)) or not self.can_batch_name(unit,target,terms):
                 single(unit,terms)
             else:cold.append((unit,terms,key))
         if len(cold)<2:

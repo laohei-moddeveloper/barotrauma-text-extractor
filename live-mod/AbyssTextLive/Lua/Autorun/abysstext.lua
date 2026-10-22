@@ -136,13 +136,26 @@ local function PutTranslation(source,target)
         translatedCount=translatedCount+1
     end
 end
-local function Observe(text, key, priority, context)
+-- Owner paths are public game metadata, read once during bounded preload.
+-- No filesystem scan or owner lookup is performed inside draw hooks.
+local function ModOwner(package)
+    local owner=""
+    pcall(function()
+        local path=tostring(package.Path):gsub("\\","/")
+        local id=path:match("/(%d+)/[^/]+$")
+        if id and #id>=8 and #id<=20 then owner=id end
+    end)
+    return owner
+end
+
+local function Observe(text, key, priority, context, modId)
     if not active or type(text) ~= "string" or #text < 2 or #text > 20000 then return end
     if text:find("译潜 · ",1,true)==1 or text:find("AbyssText · ",1,true)==1 then return end
     priority=priority or (key and key~="" and 3 or 1)
     if translatedValues[text] or translations[text] or ignored[text] then return end
     local rawIdentity=(key or "").."\0"..text
     if queued[rawIdentity] then
+        if modId and modId~="" and not queued[rawIdentity].mod_id then queued[rawIdentity].mod_id=modId end
         if priority<queued[rawIdentity].priority then queued[rawIdentity].priority=priority;Enqueue(rawIdentity,priority) end
         return
     end
@@ -165,7 +178,7 @@ local function Observe(text, key, priority, context)
     end
     if sent[identity]~=nil and (priority~=0 or sent[identity]==0) then return end
     if queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
-    queued[identity] = {text=text, key=key or "",priority=priority,context=context or "Visible GUI"}
+    queued[identity] = {text=text, key=key or "",priority=priority,context=context or "Visible GUI",mod_id=modId}
     Enqueue(identity,priority)
     queuedCount = queuedCount + 1
     queuedBytes = queuedBytes + #text + #(key or "")
@@ -208,6 +221,7 @@ local function CollectLanguageKeys()
     local sourcePacks = PacksFor(sourceLanguage)
     if sourcePacks == nil then Warn("source", Ui("未找到源语言表，继续采集当前界面。", "Source language pack unavailable; collecting displayed text.")) return end
     for pack in sourcePacks do
+        local owner="";pcall(function() owner=ModOwner(pack.ContentFile.ContentPackage) end)
         -- Texts loads an unloaded English pack via its own public getter.
         for pair in pack.Texts do
             local key = tostring(pair.Key):lower()
@@ -221,7 +235,7 @@ local function CollectLanguageKeys()
                         if existing ~= text then localized = true break end
                     end
                 end
-                if not localized then Observe(text, key) end
+                if not localized then Observe(text,key,nil,nil,owner) end
                 Budget()
             end
         end
@@ -243,10 +257,11 @@ local function CollectPrefabs()
                 local collection=static.Prefabs
                 if collection==nil then return end
                 for prefab in collection do
+                    local owner="";pcall(function() owner=ModOwner(prefab.ContentPackage) end)
                     local function QueueValue(value,key,context)
                         local text=TextValue(value)
                         local localized=(targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]")
-                        if not localized then Observe(text,key,2,context) end
+                        if not localized then Observe(text,key,2,context,owner) end
                         preloadSteps=preloadSteps+1
                         if preloadSteps>=32 or queuedCount>=64 then preloadSteps=0;coroutine.yield() end
                     end

@@ -75,11 +75,13 @@ class LiveBridge:
             if already_target_chinese(text,data.get('source_language','English'),data.get('target_language','Simplified Chinese')):continue
             context=record.get('context','当前已加载语言键' if key else '当前原生 GUI 控件文字')
             if not isinstance(context,str) or len(context)>120:raise ValueError('无效的游戏内语境')
+            mod_id=record.get('mod_id','')
+            if not isinstance(mod_id,str) or (mod_id and (not mod_id.isascii() or not mod_id.isdigit() or not 8<=len(mod_id)<=20)):raise ValueError('无效的模组来源 ID')
             priority=record.get('priority',2 if key else 1)
             if not isinstance(priority,int) or priority not in range(4):priority=2
             report.entries.append(Entry(source_id(text)+str(index),"<游戏内>",index+1,1,"游戏内显示","literal",text,
                 key=key,language=canonical_language(data.get("source_language","English")),context=context,
-                evidence="LuaCs 客户端采集；动态文字只代表此次观察值",location={"native_key":key,"live_priority":priority}))
+                evidence="LuaCs 客户端采集；动态文字只代表此次观察值",location={"native_key":key,"live_priority":priority,"mod_id":mod_id}))
         delta_mode=data.get('response_mode')=='delta-v1'
         pair=(canonical_language(data.get('source_language','English')),canonical_language(data.get('target_language','Simplified Chinese')))
         if (self.session_id,self.source_language,self.target_language,self.delta_mode)!=(data.get('session_id',''),*pair,delta_mode):

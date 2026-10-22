@@ -16,7 +16,7 @@ def audit():
     evidence=ROOT/'artifacts/evidence'
     receipt=json.loads((evidence/'frozen-checks.json').read_text(encoding='utf-8'))
     online=json.loads((evidence/'frozen-online.json').read_text(encoding='utf-8'))
-    assert receipt['passed'] and len(receipt['checks'])==5 and all(c['passed'] for c in receipt['checks'])
+    assert receipt['passed'] and len(receipt['checks'])==6 and all(c['passed'] for c in receipt['checks'])
     assert online['ok'] and not online['issues']
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     hashes={}

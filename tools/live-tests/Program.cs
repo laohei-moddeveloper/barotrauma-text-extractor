@@ -337,4 +337,13 @@ for _,field in ipairs({'session_id','source_language','target_language'}) do
  assert(json.parse(disk[root..'/Live/status.json']).applied_sequence==0)
 end
 """);
+Check("language and prefab owner scope stays in bounded request", """
+TextManager.TextPacks.English[1].ContentFile={ContentPackage={Path='C:/WorkshopMods/Installed/1234567890/filelist.xml'}}
+ItemPrefab={Prefabs={{Name='Scoped phantom wrench',ContentPackage={Path='C:\\WorkshopMods\\Installed\\2222222222\\filelist.xml'}}}}
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+local seen={}
+for _,r in ipairs(RequestData().records) do seen[r.text]=r.mod_id end
+assert(seen.Tool=='1234567890' and seen['Scoped phantom wrench']=='2222222222')
+""");
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

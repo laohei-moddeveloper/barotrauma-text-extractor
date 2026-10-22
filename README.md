@@ -55,3 +55,7 @@ python tools/benchmark.py
 本版本借鉴 Poedit/Weblate 的上下文、翻译记忆、校对与质量检查流程，并核对 Barotrauma、LuaCs 公开接口；[研究与设计说明](docs/DESIGN-v0.2.md)。`examples` 全为自建虚构内容。历史 v0.1 Windows 验证记录保留在原文档中，不适用于此次升级。
 
 本机结果与安装/恢复：[Windows 验收记录](docs/WINDOWS-v0.2.md)。官方接口说明：[MyMemory GET API](https://mymemory.translated.net/doc/spec.php)、[额度](https://mymemory.translated.net/doc/usagelimits.php)。不要用此服务发送私密模组文本或凭据；免配置模式会将待翻译原文交给第三方服务。
+
+## 工坊人工汉化缓存
+
+支持从本地订阅的老虎脱粒机汉化整合包及已核对的相关汉化包生成带来源缓存，可靠命中优先本地返回，未命中才使用所选渠道；离线模式可单独复用。操作与覆盖边界见 [人工汉化缓存说明](docs/HUMAN-MEMORY.zh-CN.md)。第三方译文和脚本不随源码分发。
