@@ -13,7 +13,7 @@ from pathlib import Path
 import threading
 import ssl
 import time
-from terminology import REVISION, context_key, policy_key, relevant_terms, term_pattern, exact_term, medical_template, action_terms, repair_game_actions
+from terminology import REVISION, context_key, policy_key, relevant_terms, term_pattern, exact_term, medical_template, action_terms, repair_game_actions, expand_creature_compounds
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -308,9 +308,17 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
     substitutions={}
     def shield(value):
         token=prefix+str(len(substitutions))+'__';substitutions[token]=value;return token
+    def prepare_piece(piece):
+        # Preserve full names/phrases (especially explicit glossary overrides)
+        # before exposing boundaries inside otherwise unknown creature names.
+        spans=pattern.split(piece) if pattern else [piece]
+        matches=list(pattern.finditer(piece)) if pattern else []
+        return ''.join(expand_creature_compounds(unit,span,target_language)+(matches[i].group() if i<len(matches) else '')
+                       for i,span in enumerate(spans))
     def shield_piece(piece):
         if not piece:return ''
         if TOKENS.fullmatch(piece):return shield(piece)
+        piece=prepare_piece(piece)
         return pattern.sub(lambda m:shield(lowered[m.group().casefold()]),piece) if pattern else piece
     masked=''.join(shield_piece(piece) for piece in TOKENS.split(unit.source))
     if substitutions and len(masked.encode())<=480:
@@ -327,6 +335,7 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
     for piece in TOKENS.split(unit.source):
         if cancelled():raise ValueError('翻译已取消；当前条目未写入。')
         if not piece or TOKENS.fullmatch(piece) or not any(c.isalpha() for c in piece):output.append(piece);continue
+        piece=prepare_piece(piece)
         # Exact known spans stay local even if a provider damages shield tokens.
         spans=pattern.split(piece) if pattern else [piece]
         matches=list(pattern.finditer(piece)) if pattern else []

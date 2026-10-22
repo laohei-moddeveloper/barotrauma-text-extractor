@@ -56,7 +56,7 @@ def verify(exe, output):
         def check_online():
             if not online.is_file():return False
             data=json.loads(online.read_text(encoding='utf-8'))
-            return data.get('ok') is True and not data.get('issues') and bool(data.get('translation'))
+            return data.get('ok') is True and not data.get('issues') and bool(data.get('translation')) and data.get('compound_check')=={'translation':'画皮泥偶迅猛龙','ok':True}
         run('actual frozen HTTPS translation',['--check-online',online],check_online)
         if online.is_file():
             shutil.copy2(online,output/'frozen-online.json')

@@ -30,6 +30,7 @@ class TlsPackagingTests(unittest.TestCase):
             with patch.object(sys,'argv',['app.py','--check-online',str(output)]),patch('free_online.translate_unit',return_value={'network-check':{'translation':'打开舱门','issues':[]}}):
                 app.main()
             data=json.loads(output.read_text(encoding='utf-8'));self.assertTrue(data['ok']);self.assertEqual(data['translation'],'打开舱门')
+            self.assertEqual(data['compound_check'],{'translation':'画皮泥偶迅猛龙','ok':True})
 
     def test_online_check_refuses_existing_output_and_scan_flags_before_network(self):
         with tempfile.TemporaryDirectory() as temp:

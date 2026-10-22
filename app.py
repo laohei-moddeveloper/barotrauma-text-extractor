@@ -33,6 +33,12 @@ def main():
             report={'ok':not result['issues'],'translation':result['translation'],'issues':result['issues']}
         except Exception as error:
             report={'ok':False,'error':str(error)}
+        # Fixed offline probe also exercises the bundled compound-term rules.
+        # It makes no additional HTTP request and needs no game installation.
+        from terminology import exact_term
+        compound=exact_term(SimpleNamespace(source='HuskMudraptor',source_language='English'),'Simplified Chinese')
+        report['compound_check']={'translation':compound,'ok':compound=='画皮泥偶迅猛龙'}
+        report['ok']=report['ok'] and report['compound_check']['ok']
         report['channel']=args.online_channel
         report['elapsed_seconds']=round(time.monotonic()-start,3)
         # Exclusive creation honors the NEW_JSON contract even if another

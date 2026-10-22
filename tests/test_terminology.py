@@ -24,6 +24,124 @@ def reply(text):return io.BytesIO(json.dumps({'responseStatus':200,'responseData
 class TerminologyTests(unittest.TestCase):
     def forbidden(self,*a,**k):raise AssertionError('Local term unexpectedly used the network')
 
+    def test_joined_creature_names_translate_locally_in_any_case(self):
+        for source in ['huskmudraptor','HuskMudraptor','HUSKMUDRAPTOR','  huskmudraptor ']:
+            with self.subTest(source=source):
+                result=translate_unit(unit(source),'Simplified Chinese',self.forbidden)['unit']
+                self.assertEqual(result['translation'],source.replace(source.strip(),'画皮泥偶迅猛龙'))
+                self.assertFalse(result['issues'])
+        self.assertEqual(exact_term(unit('huskmoloch'),'Simplified Chinese'),'画皮摩螺克')
+
+    def test_joined_creature_terms_respect_full_and_component_user_overrides(self):
+        self.assertEqual(exact_term(unit('huskmudraptor'),'Simplified Chinese',{'HUSK':'自定义画皮'}),'自定义画皮泥偶迅猛龙')
+        self.assertEqual(exact_term(unit('huskmudraptor'),'Simplified Chinese',{'HuskMudraptor':'作者专用名'}),'作者专用名')
+        self.assertIsNone(exact_term(unit('huskmudraptor'),'French'))
+
+    def test_joined_names_are_protected_as_a_whole_in_formatted_sentences(self):
+        calls=[]
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+            self.assertNotIn('huskmudraptor',q.casefold())
+            return reply(q.replace('Watch','注意'))
+        result=translate_unit(unit('Watch <b>huskmudraptor</b> [target].'),'Simplified Chinese',network)['unit']
+        self.assertEqual(result['translation'],'注意 <b>画皮泥偶迅猛龙</b> [target].')
+        self.assertFalse(result['issues']);self.assertEqual(len(calls),1)
+
+    def test_partial_unknown_identifier_and_ambiguous_splits_are_rejected(self):
+        from terminology import compound_parts,compound_terms
+        for source in ['huskiness','myhuskmudraptor','huskmudraptoralpha','my_huskmudraptor_identifier',
+                       'huskmudraptor123','huskmudraptor'+('husk'*20)]:
+            self.assertEqual(compound_terms(source),{},source)
+        # Two different complete paths: abcd+efgh and abcde+fgh.
+        self.assertIsNone(compound_parts('abcdefgh',('abcd','efgh','abcde','fgh')))
+        self.assertIsNone(compound_parts('abcdefgh',('abcdefgh','abcd','efgh')))
+        self.assertEqual(compound_parts('huskmudraptor'),('husk','mudraptor'))
+        self.assertIsNone(compound_parts('husk'*5))
+
+    def test_joined_name_cache_policy_does_not_reuse_old_generic_translation(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            cache=TranslationCache(Path(temp)/'cache.json')
+            with patch('terminology.REVISION','old-rules5'):
+                old_key=cache.key(unit('huskmudraptor'),'Simplified Chinese')
+            cache.remember(old_key,'旧的错误译名')
+            current=cache.translate(unit('huskmudraptor'),'Simplified Chinese',self.forbidden)['unit']
+            override=cache.translate(unit('huskmudraptor'),'Simplified Chinese',self.forbidden,
+                                     glossary={'huskmudraptor':'另一个名字'})['unit']
+            self.assertEqual(current['translation'],'画皮泥偶迅猛龙')
+            self.assertEqual(override['translation'],'另一个名字')
+
+    def test_known_prefix_unknown_mod_name_sends_only_unknown_name_unprotected(self):
+        calls=[]
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+            self.assertNotIn('husk',q.casefold());self.assertIn('abysswalker',q.casefold())
+            return reply(q.replace('abysswalker','深渊行者'))
+        result=translate_unit(unit('huskabysswalker',context='CharacterPrefab.Name'),'Simplified Chinese',network)['unit']
+        self.assertEqual(result['translation'],'画皮深渊行者');self.assertFalse(result['issues'])
+        self.assertEqual(len(calls),1)
+
+    def test_known_suffix_and_both_edges_share_one_request_without_losing_order(self):
+        for source,expected in [('abysswalkermudraptor','深渊行者泥偶迅猛龙'),
+                                ('huskabysswalkermudraptor','画皮深渊行者泥偶迅猛龙'),
+                                ('AbyssWalkerHusk','深渊行者画皮')]:
+            calls=[]
+            def network(request,timeout):
+                q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+                self.assertNotIn('husk',q.casefold());self.assertNotIn('mudraptor',q.casefold())
+                return reply(q.replace('abysswalker','深渊行者').replace('Abyss Walker','深渊行者'))
+            result=translate_unit(unit(source,context='CharacterPrefab.Name'),'Simplified Chinese',network)['unit']
+            self.assertEqual(result['translation'],expected);self.assertFalse(result['issues'])
+            self.assertEqual(len(calls),1)
+
+    def test_partial_compound_component_glossary_is_kept_and_hot_cache_sends_nothing(self):
+        calls=[]
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+            return reply(q.replace('abysswalker','深渊行者'))
+        with tempfile.TemporaryDirectory() as temp:
+            cache=TranslationCache(Path(temp)/'cache.json');sample=unit('abysswalkerhusk',context='CharacterPrefab.Name')
+            result=cache.translate(sample,'Simplified Chinese',network,glossary={'Husk':'自定义画皮'})['unit']
+            self.assertEqual(result['translation'],'深渊行者自定义画皮')
+            cached=cache.translate(sample,'Simplified Chinese',self.forbidden,glossary={'Husk':'自定义画皮'})['unit']
+            self.assertEqual(cached['translation'],result['translation']);self.assertEqual(len(calls),1)
+
+    def test_partial_compounds_use_camelcase_and_preserve_context_formats(self):
+        calls=[]
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+            self.assertNotIn('Husk',q);self.assertIn('Abyss Walker',q)
+            return reply(q.replace('Abyss Walker','深渊行者').replace('Watch','注意'))
+        result=translate_unit(unit('Watch <b>HuskAbyssWalker</b> [target].'),'Simplified Chinese',network)['unit']
+        self.assertEqual(result['translation'],'注意 <b>画皮深渊行者</b> [target].')
+        self.assertFalse(result['issues']);self.assertEqual(len(calls),1)
+
+    def test_partial_compounds_do_not_split_ordinary_text_or_identifiers(self):
+        from terminology import expand_creature_compounds
+        for source in ['huskiness','husking','huskabysswalker','HUSKABYSSWALKER','my_huskabysswalker_id','huskabysswalker123']:
+            self.assertEqual(expand_creature_compounds(unit(source),source,'Simplified Chinese'),source)
+        self.assertEqual(expand_creature_compounds(unit('huskiness',context='CharacterPrefab.Name'),'huskiness','Simplified Chinese'),'huskiness')
+        scoped=unit('huskmudraptorabyss',context='CharacterPrefab.Name')
+        self.assertEqual(expand_creature_compounds(scoped,scoped.source,'Simplified Chinese'),'husk mudraptor abyss')
+
+    def test_whole_name_glossary_in_sentence_wins_over_partial_expansion(self):
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0]
+            self.assertNotIn('Abyss',q);self.assertNotIn('Egg',q)
+            return reply(q.replace('Watch','注意'))
+        result=translate_unit(unit('Watch HuskAbyssWalker Egg.'),'Simplified Chinese',network,
+                              glossary={'HuskAbyssWalker Egg':'模组指定卵'})['unit']
+        self.assertIn('模组指定卵',result['translation']);self.assertFalse(result['issues'])
+
+    def test_broken_partial_name_markers_keep_prefix_and_retry_unknown_suffix(self):
+        calls=[]
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+            return reply('坏标记' if '__ABYSSTEXT_' in q else '深渊行者')
+        result=translate_unit(unit('huskabysswalker',context='CharacterPrefab.Name'),'Simplified Chinese',network)['unit']
+        self.assertEqual(result['translation'],'画皮深渊行者');self.assertFalse(result['issues'])
+        self.assertEqual(len(calls),2);self.assertEqual(calls[1],'abysswalker')
+
     def test_every_curated_name_has_a_verified_key_and_zero_network_path(self):
         from terminology import ENTRIES
         self.assertEqual(len({e['key'] for e in ENTRIES}),len(ENTRIES))
@@ -230,5 +348,6 @@ class TerminologyTests(unittest.TestCase):
     def test_creature_motion_does_not_add_vehicle_meaning(self):
         from terminology import repair_game_actions
         self.assertEqual(repair_game_actions(unit('The Crawler is moving toward the nest.'),'正在驶向巢穴','Simplified Chinese'),'正在移向巢穴')
+        self.assertEqual(repair_game_actions(unit('The huskmudraptor is moving toward the nest.'),'正在驶向巢穴','Simplified Chinese'),'正在移向巢穴')
         self.assertEqual(repair_game_actions(unit('The submarine is moving toward the outpost.'),'正驶向前哨站','Simplified Chinese'),'正驶向前哨站')
         self.assertEqual(repair_game_actions(unit('The Crawler is moving toward the nest.'),'正在驶向巢穴','Simplified Chinese',{'moving':'驶向'}),'正在驶向巢穴')
