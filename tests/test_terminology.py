@@ -58,9 +58,9 @@ class TerminologyTests(unittest.TestCase):
         calls=[]
         def network(request,timeout):
             q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
-            return reply('坏格式' if '__ABYSSTEXT_' in q else {'Reload':'重新装填','for':'给'}.get(q,q))
-        result=translate_unit(unit('Reload Coilgun for [target]'),'Simplified Chinese',network)['unit']
-        self.assertEqual(result['translation'],'重新装填电磁枪给 [target]');self.assertFalse(result['issues'])
+            return reply('坏格式' if '__ABYSSTEXT_' in q else {'Alert':'警告','for':'给'}.get(q,q))
+        result=translate_unit(unit('Alert Coilgun for [target]'),'Simplified Chinese',network)['unit']
+        self.assertEqual(result['translation'],'警告电磁枪给 [target]');self.assertFalse(result['issues'])
         self.assertEqual(len(calls),3)
 
     def test_term_does_not_replace_part_of_an_identifier(self):
@@ -147,9 +147,9 @@ class TerminologyTests(unittest.TestCase):
         calls=[]
         def network(request,timeout):
             q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
-            return reply(q.replace('Reload','装填').replace('__ABYSSTEXT_0__','__ ABYSSTEXT_0 __'))
-        result=translate_unit(unit('Reload Coilgun'),'Simplified Chinese',network)['unit']
-        self.assertEqual(len(calls),1);self.assertFalse(result['issues']);self.assertEqual(result['translation'],'装填电磁枪')
+            return reply(q.replace('Use','使用').replace('__ABYSSTEXT_0__','__ ABYSSTEXT_0 __'))
+        result=translate_unit(unit('Use Coilgun'),'Simplified Chinese',network)['unit']
+        self.assertEqual(len(calls),1);self.assertFalse(result['issues']);self.assertEqual(result['translation'],'使用电磁枪')
 
     def test_medical_template_is_whole_instruction_and_never_noun_treat(self):
         result=translate_unit(unit('Treat opiate overdose with Naloxone.'),'Simplified Chinese',self.forbidden)['unit']

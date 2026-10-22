@@ -38,7 +38,7 @@ def relevant_terms(unit,target,glossary=None):
         # "reload the webpage ... Coilgun guide" must retain software meaning.
         for match in re.finditer(r'\b(reload(?:ing|s)?)\s+(?:the\s+|an?\s+)?(?:coilgun|railgun|shotgun|revolver|chaingun|harpoon gun|smg)\b',unit.source,re.IGNORECASE):
             result[match[1]]='装填'
-        for match in re.finditer(r'\b(seal(?:ing|s)?)\s+(?:the\s+)?(?:hull\s+)?breaches?\b',unit.source,re.IGNORECASE):
+        for match in re.finditer(r'\b(seal(?:ing|s)?)\s+(?:the\s+)?(?:hull\s+)?breach(?:es)?\b',unit.source,re.IGNORECASE):
             result[match[1]]='封堵'
     # User-provided glossary belongs to the current project language pair.
     for key,value in (glossary or {}).items():
