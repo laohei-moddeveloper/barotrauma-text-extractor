@@ -2,7 +2,7 @@
 
 ## 结论及验收边界
 
-**尚未完成人物物品栏真实游戏验收，不能宣称整体修复成功。** 已在真实游戏潜艇编辑器观察到同一个 Pressure Injector Headset 的名称和整段简介由英文变成中文。用户手动启动试译和悬停物品，Codex 读取画面及本机文件；自动输入不能可靠触发游戏操作。随后电脑操作工具检测到用户物理 Escape 并停止，本轮未继续发送桌面输入。
+**用户随后亲自测试并明确反馈“非常好”，要求同步当前版本并准备工坊更新，标题稍后提供。** Codex 自己的画面验收仅覆盖真实游戏潜艇编辑器同一个 Pressure Injector Headset 的名称和整段简介由英文变成中文；没有把用户反馈扩写为自行观察了全部专项。用户手动启动试译和悬停物品，Codex 读取画面及本机文件；自动输入不能可靠触发游戏操作。随后电脑操作工具检测到用户物理 Escape 并停止，本轮未继续发送桌面输入。
 
 未完成：人物物品栏至少三个样本、修复候选的同物品前后对照、停止恢复和再次开启、真实动态占位符/连续悬停帧时间。不能用下面的隔离检查代替这些项目。
 
@@ -62,7 +62,9 @@ last-error.txt 在初始现场不存在；status.last_error 为空。网络失�
 
 新 EXE SHA256：`8aaec8f11c9254b0f9c35c7afd17a3dc2c2d10debfd68274323efb21f0fc42bb`。
 
-新插件已写入 `D:/steam/steamapps/common/Barotrauma/LocalMods/AbyssTextLive/Lua/Autorun/abysstext.lua`，SHA256：`395ae1897773368b491fd5d9c8f8b2be7ce708cb3b929d7cd9e31ee4153354a0`。**磁盘已更新不等于运行中已重载**；必须核对 status.runtime_build。Escape 停止后未继续用 UI 验证最终标记，当前运行模块不能宣称已验收。
+新插件已写入 `D:/steam/steamapps/common/Barotrauma/LocalMods/AbyssTextLive/Lua/Autorun/abysstext.lua`，SHA256：`395ae1897773368b491fd5d9c8f8b2be7ce708cb3b929d7cd9e31ee4153354a0`。之后只读核对 status.json，已出现 `runtime_build: request-sequence-fix-20261022`，active=true、已提交 318、已收译文 298、applied_sequence=251，确认用户已实际重载最终候选。状态还保留一次 response.json 文件共享冲突警告；后续 ACK 和译文仍在增加，未作为新的永久阻断，不隐去该记录。
+
+新版桌面 EXE 已解压到 `D:/Codex/AbyssText-candidates/da1e4f0/AbyssText/`，没有关闭用户当前工作台或覆盖其内存中的工程。当前实际游戏测试组合为原 81af2b2 桌面 EXE + da1e4f0 插件；新版桌面 EXE 的核心变动是状态提示，只有冻结程序/隔离验证，没有冒称已经在用户游戏会话中使用新版桌面 EXE。
 
 继续测试：保存桌面工程；退出旧工作台后从独立候选目录启动新版，连接上述插件目录并选 Google（当前 MyMemory 失败）。游戏 F3 停止试译、cl_reloadlua、重新试译，先核对 runtime_build，再在不保存的测试会话完成人物栏三个物品、停止恢复/再开和连续悬停。无需重装游戏或替换 DLL。
 
