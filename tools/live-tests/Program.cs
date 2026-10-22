@@ -59,7 +59,7 @@ Tick(1);assert(control.Text=='Open hatch')
 Check("same-revision completion acknowledged","","""
 FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
 Response(request.request_id,'one',false,{Tool='工具'});Tick(1)
-patches['abysstext.draw.1'](nil,{text='New display'})
+ItemPrefab={Prefabs={{Name='New background item'}}};hooks.roundStart()
 Tick(3);assert(writes==1)
 Response(request.request_id,'one',true,{Tool='工具'});Tick(3)
 assert(writes==2)
@@ -253,5 +253,62 @@ disk[root..'/Live/settings.json']=json.serialize({source_language='en',target_la
 FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
 assert(request.source_language=='English' and request.target_language=='Simplified Chinese')
 for _,r in ipairs(request.records) do assert(r.text~='已有汉化 English') end
+""");
+Check("delta acknowledgements preserve prior translations and reject sequence gaps", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+assert(request.response_mode=='delta-v1')
+Delta(request,1,{['Open hatch']='打开舱门'});Tick(0.25)
+assert(control.Text=='打开舱门' and json.parse(disk[root..'/Live/status.json']).applied_sequence==1)
+Delta(request,2,{Tool='工具'});Tick(0.25)
+local p={text='Tool'};patches['abysstext.draw.1'](nil,p);assert(p.text=='工具')
+assert(control.Text=='打开舱门')
+Delta(request,4,{['Open hatch']='错误'});Tick(0.25)
+assert(control.Text=='打开舱门' and json.parse(disk[root..'/Live/status.json']).applied_sequence==2)
+""");
+Check("oversized delta is rejected before any application", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+local many={['Open hatch']='错误'};for i=1,8 do many['Extra '..i]='多余' end
+Delta(request,1,many);Tick(0.25);assert(control.Text=='Open hatch')
+assert(json.parse(disk[root..'/Live/status.json']).applied_sequence==0)
+Delta(request,1,{['Open hatch']='打开舱门'});Tick(0.25);assert(control.Text=='打开舱门')
+""");
+Check("removing and correcting a delta restores or updates original controls", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+Delta(request,1,{['Open hatch']='第一译文'});Tick(0.25);assert(control.Text=='第一译文')
+Delta(request,2,{['Open hatch']='修正译文'});Tick(0.25);assert(control.Text=='修正译文')
+Delta(request,3,{}, {'Open hatch'});Tick(0.25);assert(control.Text=='Open hatch')
+""");
+Check("continuous deltas cannot starve later controls", """
+GUI.Canvas.Children={}
+for i=1,180 do GUI.Canvas.Children[i]={isControl=true,Text='Open hatch',Children={}} end
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+for i=1,8 do Tick(0.01) end
+local request=RequestData()
+for sequence=1,10 do Delta(request,sequence,{['Open hatch']='译文 '..sequence});Tick(0.25) end
+for i=1,16 do Tick(0.01) end
+for _,c in ipairs(GUI.Canvas.Children) do assert(c.Text=='译文 10',c.Text) end
+""");
+Check("initial control traversal yields every 32 nodes", """
+reads=0;GUI.Canvas.Children={}
+for i=1,500 do
+ GUI.Canvas.Children[i]=setmetatable({isControl=true,Children={}},{__index=function(_,key)
+  if key=='Text' then reads=reads+1;return 'Unseen control' end
+ end})
+end
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers();assert(reads<=64,tostring(reads))
+for i=1,8 do local before=reads;Tick(0.01);assert(reads-before<=64,tostring(reads-before)) end
+""");
+Check("bounded queue selection retains visible priority", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local first=RequestData()
+for frame=1,10 do
+ Tick(0.01)
+ for i=1,100 do patches['abysstext.draw.1'](nil,{text='Visible label '..string.char(64+frame)..string.char(65+math.floor((i-1)/26))..string.char(65+(i-1)%26)}) end
+end
+Delta(first,1,{}, {},true);Tick(0.25)
+local second=RequestData();assert(#second.records<=8 and second.request_id~=first.request_id)
+Tick(3);local status=json.parse(disk[root..'/Live/status.json'])
+assert(status.last_queue_visits<=64 and status.queued_records>0)
 """);
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

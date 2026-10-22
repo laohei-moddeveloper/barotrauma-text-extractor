@@ -17,8 +17,8 @@ from extractor import Entry, Report, VERSION, scan
 from live_bridge import LiveBridge
 from languages import NAMES, already_target_chinese, canonical_language
 from translation_api import Settings, batches, translate, game_auto_allowed
-from free_online import PROVIDER as FREE_ONLINE, TranslationCache
-from online_worker import run_online
+from free_online import PROVIDER as FREE_ONLINE, TranslationCache, CHANNEL_LABELS
+from online_worker import run_online, LiveFeed, live_priority
 from translation_diagnostics import TranslationDiagnostics, safe_error
 from workbench import Project, STATES, Unit, export_copy, export_csv, export_native, native_xml, source_id, quality
 from ui_i18n import Localizer, canonical, tr
@@ -57,6 +57,7 @@ class WorkbenchWindow:
         self.cache = {}
         self.api = Settings(preferences.get("endpoint","http://127.0.0.1:11434/v1"),preferences.get("model","qwen2.5:7b"))
         self.provider = tk.StringVar(value=preferences.get("provider",FREE_ONLINE))
+        self.online_channel=tk.StringVar(value=preferences.get("online_channel","mymemory") if preferences.get("online_channel","mymemory") in CHANNEL_LABELS else "mymemory")
         self.source_language=tk.StringVar(value="Auto")
         self.target_language=tk.StringVar(value="Simplified Chinese")
         self.folder = tk.StringVar()
@@ -82,6 +83,7 @@ class WorkbenchWindow:
         self.task_error = ""
         self.draft_task_id = 0
         self.live_worker = False
+        self.live_feed=None
         self.loading_editor = False
         self.bridge = None
         self.live_request = ""
@@ -104,7 +106,7 @@ class WorkbenchWindow:
         self.root.bind("<F5>", lambda _: self.start_scan())
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.after(100, self.poll)
-        self.root.after(1500, self.poll_live)
+        self.root.after(250, self.poll_live)
         self.root.after(500,self.localize_widgets)
 
     def tr(self,text):return tr(text,self.ui_language)
@@ -116,7 +118,7 @@ class WorkbenchWindow:
     def save_preferences(self):
         if not self.preferences_path:return
         from workbench import atomic_write
-        try:atomic_write(self.preferences_path,json.dumps({"language":self.ui_language,"provider":self.canon(self.provider.get()),"endpoint":self.api.endpoint,"model":self.api.model},ensure_ascii=False))
+        try:atomic_write(self.preferences_path,json.dumps({"language":self.ui_language,"provider":self.canon(self.provider.get()),"online_channel":self.online_channel.get(),"endpoint":self.api.endpoint,"model":self.api.model},ensure_ascii=False))
         except OSError as error:self.status.set("设置保存失败："+str(error))
 
     def set_language(self,language):
@@ -633,12 +635,24 @@ class WorkbenchWindow:
     def settings_dialog(self):
         dialog=tk.Toplevel(self.root);dialog.title("翻译服务设置");dialog.configure(bg=BG)
         dialog.geometry("780x650")
-        frame=ttk.Frame(dialog,padding=22);frame.pack(fill="both",expand=True)
+        shell=ttk.Frame(dialog);shell.pack(fill="both",expand=True)
+        canvas=tk.Canvas(shell,bg=BG,highlightthickness=0)
+        scrollbar=ttk.Scrollbar(shell,orient="vertical",command=canvas.yview)
+        scrollbar.pack(side="right",fill="y");canvas.pack(side="left",fill="both",expand=True)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        frame=ttk.Frame(canvas,padding=22)
+        window=canvas.create_window((0,0),window=frame,anchor="nw")
+        frame.bind("<Configure>",lambda _:canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>",lambda e:canvas.itemconfigure(window,width=e.width))
         ttk.Label(frame,text="选择草稿来源",font=(self.ui_font,16,"bold")).pack(anchor="w")
         ttk.Label(frame,text="默认免配置联网翻译，点击翻译才发送文字；也可选择离线或自定义 AI，不下载模型。",wraplength=700,style="Muted.TLabel").pack(anchor="w",pady=12)
         mode=tk.StringVar(value=self.provider.get())
         ttk.Combobox(frame,textvariable=mode,state="readonly",values=[FREE_ONLINE,"离线复用","本地 / 自定义API"]).pack(fill="x")
         ttk.Label(frame,text="免配置联网翻译无需账号、模型或密钥，使用 MyMemory 免费接口，有日额度限制。下面的 API 字段仅供自定义服务。",wraplength=700,style="Muted.TLabel").pack(anchor="w",pady=6)
+        ttk.Label(frame,text="免费联网渠道（切换只影响未完成文字，已有译文保留）").pack(anchor="w",pady=(12,4))
+        channel=tk.StringVar(value=CHANNEL_LABELS[self.online_channel.get()])
+        ttk.Combobox(frame,textvariable=channel,state="readonly",values=list(CHANNEL_LABELS.values())).pack(fill="x")
+        ttk.Label(frame,text="MyMemory 有每日额度；Google 网页兼容是实验接口，大陆可能无法直连，稳定性无保证。只发送到你选的渠道，不自动转发至其他服务。",wraplength=700,style="Muted.TLabel").pack(anchor="w",pady=6)
         entries=[]
         for label,value,secret in [("兼容 API 地址（本地 Ollama 可用 http://127.0.0.1:11434/v1）",self.api.endpoint,False),("模型（需已安装 / 已可用）",self.api.model,False),("API 密钥（可空，只在当前会话内存中保留）",self.api.key,True)]:
             ttk.Label(frame,text=label,wraplength=590).pack(anchor="w",pady=(14,5))
@@ -649,6 +663,11 @@ class WorkbenchWindow:
         def save():
             self.api=Settings(entries[0].get().strip(),entries[1].get().strip(),entries[2].get())
             self.provider.set(self.canon(mode.get()))
+            chosen={v:k for k,v in CHANNEL_LABELS.items()}.get(self.canon(channel.get()),"mymemory")
+            if chosen!=self.online_channel.get():
+                if self.busy:self.cancel.set()
+                self.live_attempted.clear();self.live_failures.clear();self.live_cooldown_until=0
+            self.online_channel.set(chosen)
             self.live_online.set(online.get())
             self.mode_label.set("已连接游戏" if self.bridge else "桌面工作台" + " · " + self.provider.get())
             dialog.destroy()
@@ -679,7 +698,8 @@ class WorkbenchWindow:
         self.draft_task_id=getattr(self,'draft_task_id',0)+1
         self.live_worker=live
         self.task_error=""
-        destination="MyMemory 免费联网翻译" if self.canon(self.provider.get())==FREE_ONLINE else self.api.endpoint
+        channel=self.online_channel.get()
+        destination=CHANNEL_LABELS[channel] if self.canon(self.provider.get())==FREE_ONLINE else self.api.endpoint
         self.status.set(f"发送 {len(units)} 条去重原文到 {destination}；生成后仍需校对。")
         snapshots=[replace(u,occurrences=list(u.occurrences)) for u in units]
         settings=replace(self.api)
@@ -687,19 +707,23 @@ class WorkbenchWindow:
         target_language=self.project.target_language
         task_session=self.live_session
         source_language=self.project.source_language
-        scope={'session':task_session,'source':source_language,'target':target_language,'task':self.draft_task_id}
+        scope={'session':task_session,'source':source_language,'target':target_language,'task':self.draft_task_id,'channel':channel}
         # Only send relevant glossary, bounded independently of import size.
         sources="\n".join(u.source for u in units)
-        glossary={k:v for k,v in self.project.glossary.items() if k in sources}
+        glossary={k:v for k,v in self.project.glossary.items() if k.casefold() in sources.casefold()}
         glossary=dict(list(glossary.items())[:128])
+        feed=LiveFeed() if live and provider==FREE_ONLINE else None
+        self.live_feed=feed
+        if feed:
+            for snapshot in snapshots:feed.submit(snapshot,glossary)
         def worker():
             try:
                 if provider==FREE_ONLINE:
-                    run_online(snapshots,target_language,self.online_cache,task_cancel.is_set,
+                    run_online([] if feed else snapshots,target_language,self.online_cache,task_cancel.is_set,
                         lambda result:self.events.put(('drafts_scoped',{**scope,'result':result})),
                         lambda unit,error:self.events.put(('draft_failure',{**scope,'id':unit.id,
                             'error':safe_error(error),'retry_after':getattr(error,'retry_after',0)})),
-                        lambda message:self.events.put(('draft_warning',{**scope,'error':message})))
+                        lambda message:self.events.put(('draft_warning',{**scope,'error':message})),glossary=glossary,channel=channel,feed=feed,deferred=lambda ids:self.events.put(('draft_deferred',{**scope,'ids':ids})))
                     return
                 for group in batches(snapshots):
                     if task_cancel.is_set():break
@@ -796,7 +820,7 @@ class WorkbenchWindow:
         try:
             keys,literals,notes=self.bridge.publish(self.project,self.live_request,self.live_drafts.get(),complete=complete,
                 progress={'failed':len(self.live_failures),'last_error':next((v['error'] for v in reversed(list(self.live_failures.values()))),'')})
-            self.status.set(f"发送到游戏：{keys} 个语言键，{literals} 条显示文字；{len(notes)} 条跳过。等待客户端刷新。")
+            self.status.set(f"已准备游戏译文：{keys} 个语言键，{literals} 条显示文字；{len(notes)} 条需适配。等待客户端分批接收。")
         except (OSError,ValueError) as error:self.error(error)
 
     def poll_live(self):
@@ -834,20 +858,21 @@ class WorkbenchWindow:
                         self.live_cooldown_until=0
                     self.live_generate=generate
                     self.commit_editor()
-                    if self.project:
-                        entries=[e for e in self.project.report.entries if e.file!="<游戏内>" or not changed_session]
-                        known={(e.file,e.key,e.text):e for e in entries}
-                        for e in report.entries:
-                            old=known.get((e.file,e.key,e.text))
-                            if old is not None:old.location['live_priority']=min(old.location.get('live_priority',2),e.location.get('live_priority',2))
-                        entries.extend(e for e in report.entries if (e.file,e.key,e.text) not in known)
-                        report=Report(self.project.report.root,entries,
-                            list(self.project.report.diagnostics),self.project.report.scanned,self.project.report.skipped,dict(self.project.report.fingerprints))
-                    previous=self.project
-                    project=Project(report,previous,self.source_language.get(),self.target_language.get())
-                    if previous:project.path=previous.path
-                    project.dirty=True
-                    self.install_project(project)
+                    if self.project and not changed_session and (self.project.source_language,self.project.target_language)==requested_pair:
+                        self.project.merge_live(report)
+                        self.refresh(reset_page=False);self.update_summary()
+                    else:
+                        if self.project:
+                            entries=[e for e in self.project.report.entries if e.file!='<游戏内>']+report.entries
+                            report=Report(self.project.report.root,entries,list(self.project.report.diagnostics),
+                                self.project.report.scanned,self.project.report.skipped,dict(self.project.report.fingerprints))
+                        previous=self.project
+                        choice=self.source_language.get()
+                        project=Project(report,previous,requested_pair[0] if choice=='Auto' else choice,self.target_language.get())
+                        project.source_choice=choice
+                        if previous and (previous.source_language,previous.target_language)==requested_pair:project.path=previous.path
+                        project.dirty=True
+                        self.install_project(project)
                     allowed=self.canon(self.provider.get())==FREE_ONLINE or game_auto_allowed(self.api.endpoint,self.canon(self.provider.get())=="离线复用",self.live_online.get())
                     if generate and allowed:
                         self.publish_live(complete=False)
@@ -855,7 +880,7 @@ class WorkbenchWindow:
                         self.status.set("请在翻译设置中开启游戏按钮联网，或使用离线/本机服务。")
                         self.publish_live()  # Acknowledge so the client can submit later requests.
                     else:self.publish_live()
-                if self.live_generate and not self.busy and self.project and (not status or status.get('active')):
+                if self.live_generate and (not self.busy or (self.live_worker and getattr(self,'live_feed',None) is not None)) and self.project and (not status or status.get('active')):
                     allowed=self.canon(self.provider.get())==FREE_ONLINE or game_auto_allowed(self.api.endpoint,self.canon(self.provider.get())=="离线复用",self.live_online.get())
                     if allowed and time.monotonic()>=self.live_cooldown_until:
                         for uid,failed in self.live_failures.items():
@@ -864,20 +889,41 @@ class WorkbenchWindow:
                                 failed['retry_at']=0
                         units=[u for u in self.project.units if not u.translation and u.state!="忽略" and u.id not in self.live_attempted and any(e.file=="<游戏内>" for e in u.occurrences)]
                         units.sort(key=lambda u:min(e.location.get('live_priority',2) for e in u.occurrences if e.file=="<游戏内>"))
-                        batch=units[:4]
-                        self.live_attempted.update(u.id for u in batch)
-                        if batch:self.start_drafts(units=batch,live=True)
-                        else:self.publish_live()
+                        feed=getattr(self,'live_feed',None) if self.busy else None
+                        if feed is not None and not self.cancel.is_set():
+                            # Reprioritize already queued records when they become visible.
+                            for uid in feed.queued_ids():
+                                unit=self.project.by_id.get(uid)
+                                if unit is not None and live_priority(unit)==0:
+                                    terms={k:v for k,v in self.project.glossary.items() if k.casefold() in unit.source.casefold()}
+                                    feed.promote(replace(unit,occurrences=list(unit.occurrences)),dict(list(terms.items())[:128]))
+                            for unit in units[:8]:
+                                terms=dict(list((k,v) for k,v in self.project.glossary.items() if k.casefold() in unit.source.casefold())[:128])
+                                accepted,deferred=feed.submit(replace(unit,occurrences=list(unit.occurrences)),terms)
+                                if deferred:self.live_attempted.discard(deferred)
+                                if accepted:self.live_attempted.add(unit.id)
+                            self.publish_live(complete=feed.pending()<=8 and len(units)<=8)
+                        elif not self.busy:
+                            batch=units[:4]
+                            self.live_attempted.update(u.id for u in batch)
+                            if batch:self.start_drafts(units=batch,live=True)
+                            else:self.publish_live()
         except (OSError,ValueError,KeyError,TypeError) as error:self.status.set("游戏桥接："+str(error))
-        finally:self.root.after(1500,self.poll_live)
+        finally:self.root.after(250,self.poll_live)
 
     def poll(self):
+        needs_render=False;needs_publish=False
+        deadline=time.monotonic()+0.006
         try:
-            while True:
+            for processed in range(64):
+                if processed and time.monotonic()>=deadline:break
                 kind,value=self.events.get_nowait()
-                if kind in {'drafts_scoped','draft_failure','draft_warning','draft_error'}:
+                if kind in {'drafts_scoped','draft_failure','draft_warning','draft_error','draft_deferred'}:
                     if not self.project or (value['session'],value['source'],value['target'])!=(self.live_session,self.project.source_language,self.project.target_language):continue
                     if value.get('task',getattr(self,'draft_task_id',0))!=getattr(self,'draft_task_id',0):continue
+                    if value.get('channel') is not None and value['channel']!=self.online_channel.get():continue
+                    if kind=='draft_deferred':
+                        self.live_attempted.difference_update(value['ids']);continue
                     if kind in {'draft_warning','draft_error'}:
                         self.status.set(value['error'])
                         self.diagnostics.record('cache-warning' if kind=='draft_warning' else 'task-error','',error=value['error'])
@@ -910,14 +956,14 @@ class WorkbenchWindow:
                 elif kind in {"done","draft_done"}:
                     if kind=='draft_done' and value is not None:
                         if value.get('task')!=getattr(self,'draft_task_id',0):continue
-                        if not self.project or (value['session'],value['source'],value['target'])!=(self.live_session,self.project.source_language,self.project.target_language):
+                        if not self.project or (value['session'],value['source'],value['target'])!=(self.live_session,self.project.source_language,self.project.target_language) or (value.get('channel') is not None and value['channel']!=self.online_channel.get()):
                             self.set_busy(False);self.live_worker=False
                             continue
                     self.set_busy(False)
                     if kind=="draft_done":
                         self.live_worker=False
-                        self.reload_current_editor();self.refresh(reset_page=False);self.update_summary()
-                        if self.bridge and self.live_request:self.publish_live(complete=False)
+                        needs_render=True
+                        if self.bridge and self.live_request:needs_publish=True
                     if self.task_error:self.status.set("任务未全部完成："+self.task_error)
                 elif kind=="drafts" and self.project:
                     self.commit_editor()
@@ -925,7 +971,7 @@ class WorkbenchWindow:
                     for uid,result in value.items():
                         if uid in self.project.by_id and not self.project.by_id[uid].translation:
                             self.project.update(uid,result["translation"])
-                            self.project.by_id[uid].origin="机器翻译草稿（未校对）"
+                            self.project.by_id[uid].origin=result.get("origin","机器翻译草稿（未校对）")
                             issues=quality(self.project.by_id[uid].source,result['translation'])
                             if issues:
                                 reason='译文未应用：'+'；'.join(issues)
@@ -937,15 +983,19 @@ class WorkbenchWindow:
                                 if not self.live_failures:self.task_error=''
                                 self.diagnostics.record('translated',uid)
                             count+=1
-                    self.reload_current_editor()
-                    if self.bridge and self.live_request:self.publish_live(complete=False)
+                    needs_render=True
+                    if self.bridge and self.live_request:needs_publish=True
                     self.status.set(f"本批收到 {count} 条草稿，{rejected} 条格式不符未应用；请检查质量提示。")
         except queue.Empty:pass
+        if needs_render:
+            self.reload_current_editor();self.refresh(reset_page=False);self.update_summary()
+        if needs_publish:self.publish_live(complete=False)
+        self.diagnostics.flush()
         self.root.after(100,self.poll)
 
     def close(self):
         if not self.confirm_unsaved():return
-        self.cancel.set();self.root.destroy()
+        self.cancel.set();self.diagnostics.flush(force=True);self.root.destroy()
 
 
 def run():

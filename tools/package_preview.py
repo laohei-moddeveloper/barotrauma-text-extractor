@@ -20,13 +20,13 @@ def main():
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     with zipfile.ZipFile(output/f'AbyssText-{VERSION}-Windows-x64.zip','w',zipfile.ZIP_DEFLATED) as archive:
         archive.write(exe,'AbyssText/BarotraumaTextExtractor.exe')
-        for name in ['README.md','README_EN.md','docs/WINDOWS-v0.2.md','docs/VALIDATION-v0.2.md','docs/FIX-zero-translations-rc2.zh-CN.md','docs/INSTALL-rc4.zh-CN.md']:
+        for name in ['README.md','README_EN.md','docs/WINDOWS-v0.2.md','docs/VALIDATION-v0.2.md','docs/FIX-zero-translations-rc2.zh-CN.md','docs/INSTALL-rc4.zh-CN.md','docs/INSTALL-rc5.zh-CN.md']:
             archive.write(ROOT/name,'AbyssText/'+name)
         archive.writestr('AbyssText/VERSION.txt',VERSION+'\nSource commit: '+commit+'\nExperimental live companion: awaiting user game acceptance.\n')
     with zipfile.ZipFile(output/f'AbyssTextLive-{VERSION}.zip','w',zipfile.ZIP_DEFLATED) as archive:
         for name in ['filelist.xml','Live/Translations.xml','Lua/Autorun/abysstext.lua']:
             archive.write(ROOT/'live-mod/AbyssTextLive'/name,'AbyssTextLive/'+name)
-        archive.write(ROOT/'docs/INSTALL-rc4.zh-CN.md','INSTALL-AND-LIMITS.zh-CN.md')
+        archive.write(ROOT/'docs/INSTALL-rc5.zh-CN.md','INSTALL-AND-LIMITS.zh-CN.md')
         archive.writestr('VERSION.txt',VERSION+'\nSource commit: '+commit+'\n')
     sums=[]
     for path in sorted(output.glob('*.zip')):

@@ -1,7 +1,7 @@
 """Translation units, review, persistence and safe exports. No UI/network side effects."""
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 import csv
 from dataclasses import asdict, dataclass, field
 import hashlib
@@ -154,7 +154,49 @@ class Project:
             self.units=rebuilt
         self._index()
 
+    def _note_changes(self, ids=None):
+        self.revision=getattr(self,'revision',0)+1
+        if not hasattr(self,'_changes'):self._changes=deque(maxlen=2048)
+        self._changes.append((self.revision,None if ids is None else tuple(ids)))
+
+    def changes_since(self, revision):
+        if revision==self.revision:return set()
+        if not self._changes or revision<self._changes[0][0]-1:return None
+        changed=set()
+        for number,ids in self._changes:
+            if number>revision:
+                if ids is None:return None
+                changed.update(ids)
+        return changed
+
+    def merge_live(self, report):
+        """Import at most eight bridge records without rebuilding all prior units."""
+        if not hasattr(self,'_live_entries'):
+            self._live_entries={(e.key,e.text,e.context):e for e in self.report.entries if e.file=='<游戏内>'}
+        touched=set()
+        for entry in report.entries:
+            if entry.file!='<游戏内>' or canonical_language(entry.language)!=self.source_language:continue
+            identity=(entry.key,entry.text,entry.context)
+            old=self._live_entries.get(identity)
+            uid=source_id(entry.text,self.source_language)
+            if old is not None:
+                before=old.location.get('live_priority',2)
+                old.location['live_priority']=min(before,entry.location.get('live_priority',2))
+                if before!=old.location['live_priority']:touched.add(uid)
+                continue
+            self._live_entries[identity]=entry;self.report.entries.append(entry)
+            unit=self.by_id.get(uid)
+            if unit is None:
+                unit=Unit(uid,entry.text,occurrences=[],source_language=self.source_language)
+                self.units.append(unit);self.by_id[uid]=unit
+            unit.occurrences.append(entry);touched.add(uid)
+            self.search_index[uid]=(unit.source+' '+unit.translation+' '+' '.join(unit.keys)+' '+' '.join(e.file+' '+e.context for e in unit.occurrences)+' '+unit.notes).casefold()
+        if touched:self._note_changes(touched);self.dirty=True
+        return touched
+
     def _index(self):
+        self._note_changes()
+        if hasattr(self,'_live_entries'):del self._live_entries
         self.by_id = {u.id: u for u in self.units}
         self.search_index = {u.id: (u.source + " " + u.translation + " " + " ".join(u.keys) + " " +
                             " ".join(e.file + " " + e.context for e in u.occurrences) + " " + u.notes).casefold() for u in self.units}
@@ -171,6 +213,7 @@ class Project:
         self.search_index[unit.id] = (unit.source + " " + translation + " " + " ".join(unit.keys) + " " +
             " ".join(e.file + " " + e.context for e in unit.occurrences) + " " + unit.notes).casefold()
         self.dirty = True
+        self._note_changes([unit_id])
 
     def filtered(self, query="", category_name="全部文本", state="全部状态", candidates=False):
         words = query.casefold().split()

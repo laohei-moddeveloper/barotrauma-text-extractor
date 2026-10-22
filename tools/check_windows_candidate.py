@@ -12,7 +12,7 @@ import tempfile
 def verify(exe, output):
     output.mkdir(parents=True, exist_ok=True)
     receipt={'protocol':1,'exe_sha256':hashlib.sha256(exe.read_bytes()).hexdigest(),
-             'game_tested':False,'checks':[]}
+             'game_tested':False,'checks':[],'optional_checks':[]}
     failed=False
     with tempfile.TemporaryDirectory(prefix='AbyssText-frozen-') as temp:
         root=Path(temp)
@@ -22,7 +22,7 @@ def verify(exe, output):
         env['PATH']=str(Path(env['SYSTEMROOT'])/'System32')
         env.pop('PYTHONHOME',None);env.pop('PYTHONPATH',None)
         env['LOCALAPPDATA']=str(root/'AppData')
-        def run(name,args,check,expected=0):
+        def run(name,args,check,expected=0,required=True):
             nonlocal failed
             item={'name':name}
             try:
@@ -32,8 +32,8 @@ def verify(exe, output):
                 item['passed']=result.returncode==expected and bool(check())
             except Exception as error:
                 item.update(passed=False,error=type(error).__name__+': '+str(error))
-            receipt['checks'].append(item)
-            failed=failed or not item['passed']
+            receipt['checks' if required else 'optional_checks'].append(item)
+            failed=failed or (required and not item['passed'])
         sample=root/'FixtureMod';sample.mkdir()
         (sample/'filelist.xml').write_text('<contentpackage name="Isolated fixture"><Item file="%ModDir%/items.xml"/></contentpackage>',encoding='utf-8')
         (sample/'items.xml').write_text('<Items><Item identifier="fixture" name="Open hatch" description="A test hatch."/></Items>',encoding='utf-8')
@@ -62,6 +62,13 @@ def verify(exe, output):
             shutil.copy2(online,output/'frozen-online.json')
             saved=online.read_bytes()
             run('online output refuses overwrite',['--check-online',online],lambda:online.read_bytes()==saved,expected=2)
+        google=root/'google-online.json'
+        def check_google():
+            if not google.is_file():return False
+            data=json.loads(google.read_text(encoding='utf-8'))
+            return data.get('ok') is True and not data.get('issues') and data.get('channel')=='google'
+        run('Google experimental frozen HTTPS',['--check-online',google,'--online-channel','google'],check_google,required=False)
+        if google.is_file():shutil.copy2(google,output/'frozen-google-online.json')
     receipt['passed']=not failed
     (output/'frozen-checks.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(receipt,ensure_ascii=False,indent=2))

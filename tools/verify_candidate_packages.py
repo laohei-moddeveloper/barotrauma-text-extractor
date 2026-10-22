@@ -49,7 +49,8 @@ def audit():
             expected=subprocess.check_output(['git','cat-file','--filters','HEAD:'+name],cwd=ROOT)
             assert archive.read('AbyssText-source/'+name)==expected,name
     result={'version':VERSION,'source_commit':commit,'passed':True,'zip_sha256':hashes,
-        'exe_sha256':receipt['exe_sha256'],'frozen_online':online,
+        'exe_sha256':receipt['exe_sha256'],'frozen_online':online,'optional_frozen_checks':receipt.get('optional_checks',[]),
+        'google_online':json.loads((evidence/'frozen-google-online.json').read_text(encoding='utf-8')) if (evidence/'frozen-google-online.json').is_file() else None,
         'source_all_tracked_files_match_commit_with_git_attributes':True,'plugin_clean_payload_matches_checkout':True,
         'windows_exe_matches_tested_exe':True,'game_tested':False}
     (evidence/'package-audit.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

@@ -42,3 +42,10 @@ function Response(request,revision,complete,translations)
 end
 function RequestData() return json.parse(disk[root.."/Live/requests.json"]) end
 function Tick(seconds) now=now+seconds;hooks.think() end
+
+function Delta(request,sequence,translations,removed,complete)
+    disk[root.."/Live/response.json"]=json.serialize({protocol=1,request_id=request.request_id,
+        session_id=request.session_id,source_language=request.source_language,target_language=request.target_language,
+        delta=true,sequence=sequence,base_sequence=sequence-1,reset=sequence==1,revision=tostring(sequence),
+        language_revision='empty-xml',keys=0,complete=complete==true,translations=translations,removed=removed or {}})
+end

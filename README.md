@@ -1,3 +1,5 @@
+[rc5：速度、术语、免费渠道与安装](docs/INSTALL-rc5.zh-CN.md) · [rc5 验证报告](research/handoffs/abysstext-rc5-20261022-report.zh-CN.md)
+
 # 译潜 AbyssText · 汉化工作台
 
 [English](README_EN.md) · [既有创意工坊条目](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)

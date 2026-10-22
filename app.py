@@ -18,7 +18,9 @@ def main():
     parser.add_argument("--target-language", default="Simplified Chinese", help="目标游戏语言名")
     parser.add_argument("--install-live-mod",type=Path,help="安装内置插件到指定 LocalMods；拒绝覆盖已有目录")
     parser.add_argument("--check-online",type=Path,metavar='NEW_JSON',help="无窗口验证联网翻译，将结果写入新的 JSON 文件")
+    parser.add_argument('--online-channel',choices=['mymemory','google'],default='mymemory',help='--check-online 的免费渠道；google 为实验网页兼容接口')
     args = parser.parse_args()
+    if args.online_channel!='mymemory' and not args.check_online:parser.error('--online-channel 仅用于 --check-online')
     if args.check_online:
         if args.check_online.exists() or args.check_online.is_symlink() or args.folder or args.output or args.install_live_mod or args.raw:
             parser.error('--check-online 需要新 JSON 路径，不能与扫描/安装参数组合')
@@ -27,10 +29,11 @@ def main():
         from free_online import translate_unit
         start=time.monotonic()
         try:
-            result=translate_unit(SimpleNamespace(id='network-check',source='Open hatch',source_language='English'),'Simplified Chinese')['network-check']
+            result=translate_unit(SimpleNamespace(id='network-check',source='Open hatch',source_language='English'),'Simplified Chinese',channel=args.online_channel)['network-check']
             report={'ok':not result['issues'],'translation':result['translation'],'issues':result['issues']}
         except Exception as error:
             report={'ok':False,'error':str(error)}
+        report['channel']=args.online_channel
         report['elapsed_seconds']=round(time.monotonic()-start,3)
         # Exclusive creation honors the NEW_JSON contract even if another
         # process creates the path while the network request is in progress.

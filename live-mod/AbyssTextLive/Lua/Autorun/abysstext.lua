@@ -9,6 +9,20 @@ local nextPoll, nextSend, serial, nextSettings = 0, 0, 0, 0
 local requestId, revision = "", ""
 local sessionId = ""
 local accepted, generation = false, 0
+local appliedSequence, nextPreload, lastQueueVisits = 0, 0, 0
+local controlScan, applyAgain = nil, false
+local observeBudget=128
+local targetUses={}
+local ignored,ignoredRing,ignoredCursor={},{},1
+local function NewBuckets()
+    local result={}
+    for priority=0,3 do result[priority]={items={},head=1,tail=0} end
+    return result
+end
+local buckets=NewBuckets()
+local function Enqueue(identity,priority)
+    local bucket=buckets[priority];bucket.tail=bucket.tail+1;bucket.items[bucket.tail]=identity
+end
 local languageRevision, hadLanguageKeys = "", false
 local applyQueue, applyIndex, responseRaw = {}, 1, ""
 local translations, translatedValues, queued, sent, controls, originals = {}, {}, {}, {}, {}, {}
@@ -108,20 +122,51 @@ local function Translated(text)
     if not translated then return nil end
     return translated:gsub("%[abyss_value_(%d+)%]",function(index) return values[tonumber(index)] or "" end)
 end
-local function Observe(text, key, priority)
+local function PutTranslation(source,target)
+    local old=translations[source]
+    if old==target then return end
+    if old~=nil then
+        targetUses[old]=(targetUses[old] or 1)-1
+        if targetUses[old]<=0 then targetUses[old]=nil;translatedValues[old]=nil end
+        translatedCount=translatedCount-1
+    end
+    translations[source]=target
+    if target~=nil then
+        targetUses[target]=(targetUses[target] or 0)+1;translatedValues[target]=true
+        translatedCount=translatedCount+1
+    end
+end
+local function Observe(text, key, priority, context)
     if not active or type(text) ~= "string" or #text < 2 or #text > 20000 then return end
     if text:find("译潜 · ",1,true)==1 or text:find("AbyssText · ",1,true)==1 then return end
+    priority=priority or (key and key~="" and 3 or 1)
+    if translatedValues[text] or translations[text] or ignored[text] then return end
+    local rawIdentity=(key or "").."\0"..text
+    if queued[rawIdentity] then
+        if priority<queued[rawIdentity].priority then queued[rawIdentity].priority=priority;Enqueue(rawIdentity,priority) end
+        return
+    end
+    if sent[rawIdentity]~=nil and (priority~=0 or sent[rawIdentity]==0) then return end
     -- MoonSharp uses .NET strings, not UTF-8 byte strings. Match Han directly.
-    if sourceLanguage=="English" and (targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]") then return end
+    if sourceLanguage=="English" and (targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]") then
+        local previous=ignoredRing[ignoredCursor];if previous then ignored[previous]=nil end
+        ignoredRing[ignoredCursor]=text;ignored[text]=true;ignoredCursor=ignoredCursor%256+1
+        return
+    end
     if not (text:match("%a") or text:match("[\128-\255]")) or translatedValues[text] or translations[text] then return end
+    if observeBudget<=0 then return end
+    observeBudget=observeBudget-1
     if key == nil or key == "" then text = Signature(text) end
     if translatedValues[text] or translations[text] then return end
     local identity = (key or "") .. "\0" .. text
-    priority=priority or (key and key~="" and 3 or 1)
-    if queued[identity] then queued[identity].priority=math.min(queued[identity].priority,priority);return end
+    if queued[identity] then
+        if priority<queued[identity].priority then queued[identity].priority=priority;Enqueue(identity,priority) end
+        return
+    end
     if sent[identity]~=nil and (priority~=0 or sent[identity]==0) then return end
     if queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
-    queued[identity] = {text=text, key=key or "",priority=priority}
+    queued[identity] = {text=text, key=key or "",priority=priority,context=context or "Visible GUI"}
+    Enqueue(identity,priority)
     queuedCount = queuedCount + 1
     queuedBytes = queuedBytes + #text + #(key or "")
     dirty = true
@@ -198,23 +243,25 @@ local function CollectPrefabs()
                 local collection=static.Prefabs
                 if collection==nil then return end
                 for prefab in collection do
-                    local function QueueValue(value,key)
+                    local function QueueValue(value,key,context)
                         local text=TextValue(value)
                         local localized=(targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]")
-                        if not localized then Observe(text,key,2) end
+                        if not localized then Observe(text,key,2,context) end
+                        preloadSteps=preloadSteps+1
+                        if preloadSteps>=32 or queuedCount>=64 then preloadSteps=0;coroutine.yield() end
                     end
                     for _, field in ipairs({"Name","Description","CauseOfDeathDescription","SelfCauseOfDeathDescription","SuccessMessage","FailureMessage"}) do
                         pcall(function()
                             -- Names already displayed in Chinese need no English->Chinese request.
-                            QueueValue(prefab[field])
+                            QueueValue(prefab[field],nil,registry.."."..field)
                         end)
                     end
                     if registry=="AfflictionPrefab" then
                         pcall(function()
-                            for description in prefab.Descriptions do QueueValue(description.Text,tostring(description.TextTag)) end
+                            for description in prefab.Descriptions do QueueValue(description.Text,tostring(description.TextTag),"AfflictionPrefab.Description") end
                         end)
                     elseif registry=="MissionPrefab" then
-                        pcall(function() for message in prefab.Messages do QueueValue(message) end end)
+                        pcall(function() for message in prefab.Messages do QueueValue(message,nil,"MissionPrefab.Message") end end)
                     end
                     preloadSteps=preloadSteps+1
                     if preloadSteps>=32 or queuedCount>=64 then preloadSteps=0;coroutine.yield() end
@@ -227,13 +274,13 @@ end
 local function ReportStatus()
     pcall(function()
         File.Write(live.."status.json",json.serialize({protocol=1,active=active,preloading=preload~=nil,
-            session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,
+            session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,applied_sequence=appliedSequence,last_queue_visits=lastQueueVisits,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
             tracked_controls=controlCount,last_error=lastError}))
     end)
 end
 local function ResumePreload()
-    if preload==nil or pending or queuedCount>=64 then return end
+    if preload==nil or queuedCount>=64 then return end
     local ok, err=coroutine.resume(preload)
     if not ok then Warn("preload","Loaded-text capture failed: "..tostring(err));preload=nil
     elseif coroutine.status(preload)=="dead" then preload=nil end
@@ -248,7 +295,7 @@ local function CollectControls(component)
         if controls[component]~=nil or controlCount<3000 then captureAfter[component]=captureTime+0.5 end
         if controls[component] == nil and controlCount < 3000 then controls[component] = true; controlCount = controlCount + 1 end
         local read, text = pcall(function() return TextValue(component.Text) end)
-        if read then Observe(text) end
+        if read then Observe(text,nil,0) end
         if ApplyControl then ApplyControl(component) end
     end
 end
@@ -256,7 +303,12 @@ ApplyControl = function(component)
         local ok = pcall(function()
             local current = TextValue(component.Text)
             local old = originals[component]
-            if old and current ~= old.display then originals[component] = nil end
+            if old and current ~= old.display then originals[component] = nil;old=nil end
+            if old then
+                local desired=Translated(TextValue(old.value))
+                if desired==old.display then return end
+                component.Text=old.value;originals[component]=nil;current=TextValue(component.Text)
+            end
             local target = Translated(current)
             -- Dynamic getters retain control over their value; the draw hook can
             -- replace plain strings instead of destroying the getter delegate.
@@ -274,13 +326,18 @@ ApplyControl = function(component)
         if not ok then controls[component] = nil; originals[component] = nil end
 end
 local function ApplyControls()
+    if applyIndex<=#applyQueue then applyAgain=true;return end
     applyQueue,applyIndex={},1
     for component in pairs(controls) do applyQueue[#applyQueue+1]=component end
 end
 local function ApplyControlBatch()
     for i=1,32 do
         local component=applyQueue[applyIndex]
-        if component==nil then applyQueue={};applyIndex=1;return end
+        if component==nil then
+            applyQueue={};applyIndex=1
+            if applyAgain then applyAgain=false;ApplyControls() end
+            return
+        end
         ApplyControl(component);applyIndex=applyIndex+1
     end
 end
@@ -290,19 +347,35 @@ local function SendRequest()
     -- records. A partial matching response acknowledges import, so visible
     -- tooltips can still take priority over accepted background work.
     if pending and not accepted then return end
-    local records = {}
-    local candidates = {}
-    for identity, record in pairs(queued) do
-        if not pending or record.priority==0 then candidates[#candidates+1]={identity=identity,record=record} end
+    local records,candidates={},{}
+    lastQueueVisits=0
+    for priority=0,(pending and 0 or 3) do
+        local bucket=buckets[priority]
+        local cursor=bucket.head
+        while cursor<=bucket.tail and #records<8 and lastQueueVisits<64 do
+            local identity=bucket.items[cursor]
+            local record=identity and queued[identity]
+            lastQueueVisits=lastQueueVisits+1
+            if record and record.priority==priority then
+                records[#records+1]=record;candidates[#candidates+1]={identity=identity,priority=priority,position=cursor}
+            else
+                bucket.items[cursor]=nil
+                if bucket.head==cursor then bucket.head=cursor+1 end
+            end
+            cursor=cursor+1
+        end
+        if #records>=8 or lastQueueVisits>=64 then break end
     end
-    table.sort(candidates,function(a,b) return a.record.priority<b.record.priority end)
-    for i=1,math.min(8,#candidates) do records[#records+1]=candidates[i].record end
     if #records == 0 then return end
     serial = serial + 1
     requestId = tostring(Timer.GetTime()) .. "." .. tostring(serial)
-    File.Write(live .. "requests.json", json.serialize({protocol=1, session_id=sessionId,request_id=requestId, translate=true, source_language=sourceLanguage, target_language=targetLanguage, records=records}))
+    File.Write(live .. "requests.json", json.serialize({protocol=1, session_id=sessionId,request_id=requestId, translate=true, response_mode="delta-v1",source_language=sourceLanguage, target_language=targetLanguage, records=records}))
     for i=1,#records do
-        local identity=candidates[i].identity
+        local candidate=candidates[i]
+        local identity=candidate.identity
+        local bucket=buckets[candidate.priority]
+        bucket.items[candidate.position]=nil;bucket.head=candidate.position+1
+        if bucket.head>bucket.tail then bucket.items={};bucket.head=1;bucket.tail=0 end
         if sent[identity]==nil then sentCount=sentCount+1 end
         sent[identity]=records[i].priority
         queuedBytes=queuedBytes-#queued[identity].text-#queued[identity].key
@@ -321,6 +394,7 @@ local function Begin()
     generation=generation+1
     local ownGeneration=generation
     accepted=false
+    appliedSequence,nextPreload=0,0
     nextPoll,nextSend=0,0
     responseRaw,revision="",""
     sessionId=tostring(Timer.GetTime())..".session."..tostring(generation).."."..tostring(serial+1)
@@ -335,17 +409,22 @@ local function Begin()
     -- Let one native frame render; no synchronous translation in the draw loop.
     Timer.Wait(function()
         if not active or generation~=ownGeneration then return end
+        controlScan=coroutine.create(function()
         local scanned = 0
         local function Walk(component)
             if scanned >= 3000 then return end
             scanned = scanned + 1
             CollectControls(component)
+            if scanned%32==0 then coroutine.yield() end
             pcall(function() CollectControls(component.GUIComponent) end)
             if component.Children ~= nil then
                 for child in component.Children do Walk(child) end
             end
         end
         pcall(function() Walk(Canvas()) end)
+        end)
+        coroutine.resume(controlScan)
+        if coroutine.status(controlScan)=="dead" then controlScan=nil end
         local sentOk, sendError = pcall(SendRequest)
         if not sentOk then Warn("send", Ui("无法写入翻译请求：", "Cannot write translation request: ") .. tostring(sendError)) end
     end, 800)
@@ -354,13 +433,14 @@ local function Stop()
     active, pending, dirty = false, false, false
     generation=generation+1
     accepted=false
-    preload=nil
+    preload=nil;controlScan=nil;appliedSequence=0;applyAgain=false;buckets=NewBuckets()
     applyQueue,applyIndex,responseRaw={},1,""
     languageRevision,hadLanguageKeys,revision="",false,""
     for component, old in pairs(originals) do
         pcall(function() if TextValue(component.Text) == old.display then component.Text = old.value end end)
     end
     originals, translations, translatedValues, queued, sent, controls = {}, {}, {}, {}, {}, {}
+    targetUses={};ignored,ignoredRing,ignoredCursor={},{},1;observeBudget=128
     captureAfter={}
     queuedCount, controlCount = 0, 0
     translatedCount=0
@@ -383,7 +463,7 @@ local function DrawText(_, parameters)
     local text = parameters["text"]
     if type(text) ~= "string" then return end
     local translated = Translated(text)
-    if translated then parameters["text"] = translated else Observe(text) end
+    if translated then parameters["text"] = translated else Observe(text,nil,0) end
 end
 InstallPatches = function()
     -- Exact overload signatures checked against public game source. A missing
@@ -457,14 +537,20 @@ Hook.Add("think", "abysstext.live", function()
     if button ~= nil then pcall(function() button.AddToGUIUpdateList() end) end
     local now = Timer.GetTime()
     captureTime,captureBudget=now,100
+    observeBudget=128
     if now>=nextStatus then nextStatus=now+2;ReportStatus() end
     if not active then
         if now >= nextSettings then nextSettings=now+2; pcall(ReadSettings) end
         return
     end
-    ApplyControlBatch()
+    if controlScan then
+        local ok,err=coroutine.resume(controlScan)
+        if not ok then Warn("controls-scan",tostring(err));controlScan=nil
+        elseif coroutine.status(controlScan)=="dead" then controlScan=nil end
+    end
+    if now>=nextPreload then nextPreload=now+0.05;ResumePreload() end
     if now >= nextPoll then
-        nextPoll = now + 1
+        nextPoll = now + 0.25
         local ok, err = pcall(function()
             if File.Exists(live .. "response.json") then
                 local raw=File.Read(live .. "response.json")
@@ -474,14 +560,25 @@ Hook.Add("think", "abysstext.live", function()
                     and (response.session_id==nil or response.session_id==sessionId)
                     and (response.source_language==nil or response.source_language==sourceLanguage)
                     and (response.target_language==nil or response.target_language==targetLanguage) then
-                    accepted=true
-                    responseRaw=raw
+                    if response.delta then
+                        if type(response.sequence)~="number" or response.sequence~=appliedSequence+1 or response.base_sequence~=appliedSequence then return end
+                        local count=0
+                        for source,target in pairs(response.translations or {}) do
+                            count=count+1
+                            if type(source)~="string" or type(target)~="string" or #source>20000 or #target>20000 then error("Invalid translation delta") end
+                        end
+                        for _,source in ipairs(response.removed or {}) do
+                            count=count+1;if type(source)~="string" then error("Invalid removal delta") end
+                        end
+                        if count>8 then error("Translation delta exceeds eight records") end
+                    end
                     if response.revision ~= revision then
-                        revision = response.revision
+                        if response.delta and response.reset then translations,translatedValues,targetUses={},{},{};translatedCount=0 end
+                        for _,source in ipairs(response.removed or {}) do
+                            PutTranslation(source,nil)
+                        end
                         for source, target in pairs(response.translations or {}) do
-                            if translations[source]==nil then translatedCount=translatedCount+1 end
-                            translations[source] = target
-                            translatedValues[target] = true
+                            PutTranslation(source,target)
                         end
                         if response.language_revision==nil then
                             RefreshLanguage(false) -- Compatibility with older workbenches.
@@ -491,8 +588,9 @@ Hook.Add("think", "abysstext.live", function()
                             hadLanguageKeys=hasKeys;languageRevision=response.language_revision
                         end
                         ApplyControls()
-                        ApplyControlBatch()
                     end
+                    revision=response.revision;responseRaw=raw;accepted=true
+                    if response.delta then appliedSequence=response.sequence;ReportStatus() end
                     if response.complete ~= false then pending = false end
                 end
             end
@@ -500,9 +598,9 @@ Hook.Add("think", "abysstext.live", function()
         -- The desktop writes atomically, but a sharing violation can still be transient.
         if not ok then Warn("poll", Ui("桥接刷新暂不可用：", "Bridge refresh temporarily unavailable: ") .. tostring(err)) end
     end
+    ApplyControlBatch()
     if now >= nextSend then
-        nextSend = now + 2
-        ResumePreload()
+        nextSend = now + 0.25
         local sentOk, sendError = pcall(SendRequest)
         if not sentOk then Warn("send", Ui("无法写入翻译请求：", "Cannot write translation request: ") .. tostring(sendError)) end
     end

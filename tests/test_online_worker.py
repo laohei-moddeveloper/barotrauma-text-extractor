@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from online_worker import run_online
+from online_worker import run_online, LiveFeed
 from translation_diagnostics import TranslationDiagnostics
 from desktop_ui import WorkbenchWindow
 from extractor import Entry,Report
@@ -33,6 +33,7 @@ class OnlineWorkerTests(unittest.TestCase):
         window.draft_task_id=0;window.live_worker=False;window.cancel=threading.Event()
         window.source_language=SimpleNamespace(get=lambda:'English')
         window.target_language=SimpleNamespace(get=lambda:'Simplified Chinese')
+        window.online_channel=SimpleNamespace(get=lambda:'mymemory')
         return window
 
     def test_failure_is_recorded_while_other_scoped_results_reach_project(self):
@@ -159,12 +160,79 @@ class OnlineWorkerTests(unittest.TestCase):
         window.poll_live();self.assertIs(window.project,before);window.start_drafts.assert_not_called();window.publish_live.assert_not_called()
         self.assertIn('语言对不同',window.status.set.call_args.args[0])
 
+    def test_old_channel_results_do_not_fill_current_channel_project(self):
+        window=self.window();unit=window.project.units[0]
+        window.events.put(('drafts_scoped',{'session':'one','source':'English','target':'Simplified Chinese','channel':'google',
+            'result':{unit.id:{'translation':'旧渠道结果','issues':[]}}}))
+        window.poll();self.assertFalse(unit.translation)
+
+    def test_rolling_scheduler_keeps_second_slot_busy_while_first_is_slow(self):
+        release=threading.Event();last_fast=threading.Event();results=[]
+        units=[SimpleNamespace(id=str(i)) for i in range(9)]
+        def translate(unit,*a,**k):
+            if unit.id=='0':
+                self.assertTrue(release.wait(3))
+            if unit.id=='8':last_fast.set()
+            return {unit.id:{'translation':'译文','issues':[]}}
+        cache=SimpleNamespace(translate=translate,flush=lambda:None)
+        worker=threading.Thread(target=lambda:run_online(units,'French',cache,lambda:False,results.append,lambda u,e:self.fail(str(e))))
+        worker.start()
+        try:self.assertTrue(last_fast.wait(2),'One slow request blocked all later groups')
+        finally:release.set();worker.join(3)
+        self.assertFalse(worker.is_alive());self.assertEqual(len(results),9)
+
+    def test_live_queue_is_bounded_and_visible_work_defers_background(self):
+        feed=LiveFeed(limit=4)
+        def snapshot(uid,priority):
+            return SimpleNamespace(id=uid,occurrences=[SimpleNamespace(file='<游戏内>',location={'live_priority':priority})])
+        for i in range(4):self.assertTrue(feed.submit(snapshot(str(i),2))[0])
+        accepted,deferred=feed.submit(snapshot('visible',0))
+        self.assertTrue(accepted);self.assertIsNotNone(deferred);self.assertEqual(feed.pending(),4)
+        self.assertEqual(feed.pop()[0].id,'visible')
+        remaining={feed.pop()[0].id for _ in range(3)}
+        self.assertEqual(remaining|{deferred},{'0','1','2','3'})
+        feed.close();self.assertFalse(feed.submit(snapshot('late',0))[0])
+
+    def test_live_visible_arrival_preempts_queued_background_before_slow_task_finishes(self):
+        feed=LiveFeed();slow=threading.Event();fast=threading.Event();started=threading.Event();visible=threading.Event()
+        def snapshot(uid,priority=2):
+            return SimpleNamespace(id=uid,occurrences=[SimpleNamespace(file='<游戏内>',location={'live_priority':priority})])
+        for uid in ['slow','first','background']:feed.submit(snapshot(uid))
+        def translate(unit,*a,**k):
+            if unit.id=='slow':slow.wait(3)
+            if unit.id=='first':started.set();fast.wait(3)
+            if unit.id=='visible':visible.set()
+            return {unit.id:{'translation':'译文','issues':[]}}
+        cache=SimpleNamespace(translate=translate,flush=lambda:None)
+        worker=threading.Thread(target=lambda:run_online([],'French',cache,lambda:False,lambda x:None,lambda u,e:None,feed=feed))
+        worker.start()
+        try:
+            self.assertTrue(started.wait(2));feed.submit(snapshot('visible',0));fast.set()
+            self.assertTrue(visible.wait(2));self.assertFalse(slow.is_set())
+        finally:slow.set();fast.set();worker.join(4)
+        self.assertFalse(worker.is_alive())
+
+    def test_quota_stops_queued_network_work_without_losing_deferred_units(self):
+        from free_online import TranslationServiceError
+        feed=LiveFeed();calls=[];waiting=[]
+        for i in range(16):feed.submit(SimpleNamespace(id=str(i)))
+        def fail(unit,*a,**k):calls.append(unit.id);raise TranslationServiceError('quota',3600)
+        cache=SimpleNamespace(translate=fail,flush=lambda:None)
+        run_online([],'French',cache,lambda:False,lambda x:None,lambda u,e:None,feed=feed,deferred=lambda ids:waiting.extend(ids))
+        self.assertLessEqual(len(calls),2);self.assertEqual(set(calls)|set(waiting),{str(i) for i in range(16)})
+
+    def test_deferred_units_are_available_after_provider_cooldown(self):
+        window=self.window();ids=[u.id for u in window.project.units];window.live_attempted=set(ids)
+        window.events.put(('draft_deferred',{'session':'one','source':'English','target':'Simplified Chinese','ids':ids[1:]}))
+        window.poll();self.assertEqual(window.live_attempted,{ids[0]})
+
     def test_diagnostics_are_bounded_and_store_failure_after_later_success(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'status.json';ledger=TranslationDiagnostics(path)
             for i in range(205):ledger.record('translated',str(i))
             ledger.record('failed','hash-only-id',error='network timeout',attempts=1)
             ledger.record('translated','another-id')
+            ledger.flush(force=True)
             data=json.loads(path.read_text(encoding='utf-8'))
             self.assertEqual(len(data['events']),200)
             self.assertEqual(data['events'][-2]['error'],'network timeout')

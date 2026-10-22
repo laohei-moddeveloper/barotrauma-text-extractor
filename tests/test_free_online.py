@@ -42,7 +42,7 @@ class FreeOnlineTests(unittest.TestCase):
             requests.append(query)
             self.assertEqual(query['langpair'],['en|zh-CN'])
             self.assertNotIn('Authorization',request.headers)
-            return io.BytesIO(json.dumps({'responseStatus':200,'responseData':{'translatedText':'警告'}}).encode())
+            return io.BytesIO(json.dumps({'responseStatus':200,'responseData':{'translatedText':query['q'][0].replace('Warning','警告')}}).encode())
         result=translate_unit(self.unit(' ‖color:1,2,3‖Warning‖color:end‖ [name] {0}\n'),'Simplified Chinese',opener)
         self.assertEqual(result['one']['translation'],' ‖color:1,2,3‖警告‖color:end‖ [name] {0}\n')
         self.assertFalse(result['one']['issues'])

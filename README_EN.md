@@ -1,3 +1,5 @@
+[rc5 speed, terminology, channel selection and installation (Chinese)](docs/INSTALL-rc5.zh-CN.md).
+
 [rc4 candidate installation and limits (Chinese)](docs/INSTALL-rc4.zh-CN.md). No local installation was changed by cloud validation.
 
 # AbyssText · Barotrauma localization workbench

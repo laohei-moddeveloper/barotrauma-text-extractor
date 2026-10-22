@@ -127,17 +127,18 @@ def main():
             'session_id':'new','translate':True,'records':[{'text':'已有中文'},{'text':'Spineling Head','priority':0}]}))
         window.poll_live()
         assert window.cancel.is_set() and window.live_request=='latest' and window.live_session=='new'
-        response=json.loads((plugin/'Live/response.json').read_text())
+        response=json.loads((plugin/'Live/response.json').read_text(encoding='utf-8'))
         assert response['request_id']=='latest' and response['complete'] is False
         assert '已有中文' not in [u.source for u in window.project.units]
-        window.events.put(('draft_done',None));pump(0.2)
         with patch.object(window.online_cache,'translate',side_effect=mock_online):
+            window.events.put(('draft_done',None));pump(0.2)
             window.poll_live()
             deadline=time.monotonic()+5
             while window.busy and time.monotonic()<deadline:pump(0.1)
-        window.poll_live()
-        response=json.loads((plugin/'Live/response.json').read_text())
-        assert response['complete'] and 'Spineling Head' in response['translations']
+            window.poll_live()
+            response=json.loads((plugin/'Live/response.json').read_text(encoding='utf-8'))
+            assert response['complete'] and 'Spineling Head' in response['translations']
+            window.bridge=None;window.live_generate=False
         window.bridge=None;window.live_generate=False
         window.install_project(project);window.provider.set("离线复用");pump()
         root.geometry("1440x900");pump()
@@ -147,6 +148,23 @@ def main():
             x,y=root.winfo_rootx(),root.winfo_rooty()
             args.screenshot.parent.mkdir(parents=True,exist_ok=True)
             ImageGrab.grab().crop((x,y,x+root.winfo_width(),y+root.winfo_height())).save(args.screenshot)
+        window.settings_dialog();pump(0.3)
+        dialogs=[widget for widget in root.winfo_children() if isinstance(widget,tk.Toplevel)]
+        assert dialogs
+        dialog=dialogs[-1]
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        canvases=[widget for widget in descendants(dialog) if isinstance(widget,tk.Canvas)]
+        assert canvases
+        canvas=canvases[0];canvas.yview_moveto(1);pump()
+        from tkinter import ttk
+        buttons=[widget for widget in descendants(dialog) if isinstance(widget,ttk.Button)]
+        save=buttons[-1]
+        assert save.winfo_rooty()+save.winfo_height()<=dialog.winfo_rooty()+dialog.winfo_height()+2,'Settings save button inaccessible'
+        assert window.online_channel.get()=='mymemory'
+        dialog.destroy()
         # Prevent a final unsaved prompt and close without network/game activity.
         window.project.dirty=False
         root.destroy()

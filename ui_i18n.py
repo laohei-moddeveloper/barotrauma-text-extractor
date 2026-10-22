@@ -3,6 +3,11 @@ import tkinter as tk
 from tkinter import ttk
 
 CATALOG = {
+    'MyMemory 免费接口':'MyMemory free endpoint',
+    'Google 网页兼容（实验）':'Google web compatibility (experimental)',
+    '免费联网渠道（切换只影响未完成文字，已有译文保留）':'Free online channel (changes affect unfinished text only)',
+    'MyMemory 有每日额度；Google 网页兼容是实验接口，大陆可能无法直连，稳定性无保证。只发送到你选的渠道，不自动转发至其他服务。':'MyMemory has daily limits. Google web compatibility is experimental, may be unreachable in mainland China, and has no stability guarantee. Text is sent only to your selected channel; no automatic forwarding.',
+
     "试译运行中":"Translation running", "试译已停止":"Translation stopped", "已采集 ":"Captured: ", "已译 ":"Translated: ",
     "默认免配置联网翻译，点击翻译才发送文字；也可选择离线或自定义 AI，不下载模型。":"Online translation needs no setup. Text is sent only when translating. Offline and custom AI options remain available; no models are downloaded.",
     "保持桌面工作台运行，游戏按钮默认直接联网翻译，无需填写配置；译文直接更新原生文字。也可选择离线或自定义 AI。":"Keep the desktop running. The game button translates online by default, with no setup, and updates native text. Offline or custom AI is also available.",
