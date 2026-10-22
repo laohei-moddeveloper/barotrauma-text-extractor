@@ -1,12 +1,14 @@
 [rc5：速度、术语、免费渠道与安装](docs/INSTALL-rc5.zh-CN.md) · [rc5 验证报告](research/handoffs/abysstext-rc5-20261022-report.zh-CN.md)
 
-# 译潜 AbyssText · 汉化工作台
+# 泥偶迅猛龙汉化 · AbyssText
+
+游戏内一键实时汉化工具与游戏外快捷翻译工作台。[当前工坊说明](workshop/description.bbcode.txt) · [2026-10-22 本机排查、用户实测反馈与安装构建](research/handoffs/abysstext-local-game-diagnosis-20261022.zh-CN.md)。原项目名称“译潜 AbyssText”与插件内部名称 AbyssTextLive 沿用，以兼容已有工程及连接目录。
 
 [English](README_EN.md) · [既有创意工坊条目](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)
 
 [rc4 候选版安装、修复和覆盖边界](docs/INSTALL-rc4.zh-CN.md)。本机仍需用户手动更新；云端没有替换本机程序。
 
-0.2 开发预览：独立桌面工作台 + 可选的 LuaCs 客户端实时试译插件。Windows 候选包已构建；游戏验收由用户手动完成，尚未宣称通过。源码运行需要 Python 3.12+ 和 Tkinter，运行依赖只有标准库。
+0.2 开发预览：独立桌面工作台 + 可选的 LuaCs 客户端实时试译插件。Windows 包已构建，部分真实游戏场景及用户实测已获得有效中文显示；具体证据和未验证项见上述本机报告。源码运行需要 Python 3.12+ 和 Tkinter，运行依赖只有标准库。
 
 ```console
 python app.py
@@ -31,7 +33,7 @@ python app.py
 
 源语言 Auto 在游戏侧使用游戏默认语言（通常 English）；需要日语等来源时请手动选择。原生语言键的显示受游戏当前语言控制，建议游戏语言与目标语言一致。运行中切换语言对后，应在游戏先停止再开始。
 
-**真实游戏尚未验收。** 已通过隔离 LuaCs/MoonSharp 测试，不等于在你的游戏版本能正常工作。图像文字、未触发场景、自定义渲染、直接带颜色索引的字体绘制、复杂动态 getter/布局等不保证覆盖；部分缓存界面需重开。实时替换可能受字体、控件宽度和其他 Hook 影响。详见 [覆盖与验证](docs/VALIDATION-v0.2.md) 和 [本地 Codex 接手话术](docs/LOCAL-CODEX-HANDOFF.zh-CN.md)。
+**覆盖仍有边界。** 本机已在真实编辑器看到同一物品名称与整段简介变为中文，用户随后完成游戏测试并反馈良好；新提供的真实录屏也展示人物物品栏的前后变化。这不等于全部内容/游戏版本验收通过。图像文字、未触发场景、自定义渲染、直接带颜色索引的字体绘制、复杂动态 getter/布局等不保证覆盖；部分缓存界面需重开。实时替换可能受字体、控件宽度和其他 Hook 影响。翻译质量将随更新持续完善术语与语境处理，草稿仍可在工作台编辑校对。详见 [覆盖与验证](docs/VALIDATION-v0.2.md) 和 [本地 Codex 接手话术](docs/LOCAL-CODEX-HANDOFF.zh-CN.md)。
 
 ## 命令行与构建
 

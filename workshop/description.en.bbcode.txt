@@ -1,0 +1,12 @@
+[h1]AbyssText: one-click in-game translation and a desktop workbench[/h1]
+AbyssText combines a client-side live translation companion with a separate Windows translation workbench. Click Translate in game and keep the connected workbench running. Ready translations replace supported native UI and tooltip text, including supported inventory names and descriptions. The session continues until stopped; newly loaded definitions are scanned across rounds.
+
+Requires LuaCs on the client. Extract the Windows ZIP in this item's Workbench folder and run BarotraumaTextExtractor.exe outside the game. Connect it to the exact enabled companion folder. The EXE is a desktop tool, not a Lua script. Enable only one copy of the companion.
+
+Built-in MyMemory and experimental Google web-compatible translation require no API key or model download. Availability, quotas and quality vary. Text is sent to your selected provider; there is no automatic provider switch or paid fallback. Machine drafts need review. One click starts the process; it does not promise instant translation or complete coverage. Images, custom rendering and unsupported dynamic paths may remain untranslated. Click Stop or use abyss_stop to restore supported text.
+
+The workbench can also scan supported XML/Lua/C# text read-only, deduplicate exact source text while retaining context, edit/review translations, reuse memory and terminology, and export projects, CSV and supported language packs. Translation quality will continue to improve through updates to game terminology, mod vocabulary and context handling. Drafts can be edited and reviewed in the workbench. This is a community tool, not an official translation or an endorsement by the game/mod authors. Game art and third-party mod content belong to their respective creators; the cover is illustrative artwork, and the GIF is actual gameplay.
+
+[img]https://raw.githubusercontent.com/laohei-moddeveloper/barotrauma-text-extractor/refs/heads/codex/abysstext-workbench/assets/workshop/gameplay-30s.gif[/img]
+
+[url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor/tree/codex/abysstext-workbench]Source and documentation[/url]
