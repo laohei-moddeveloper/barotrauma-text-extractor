@@ -45,4 +45,12 @@
 
 停止：再次点试译按钮，或 F3 执行 abyss_stop。开启命令为 abyss_translate。关闭后必要时重新打开缓存界面；要卸载则禁用本插件并重启客户端。更新前保存自己的工作台工程，备份自己旧插件的 Live 数据；不要同时启用多个副本。
 
-[url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor/tree/codex/abysstext-workbench]源码与当前开发分支[/url] · [url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor/blob/codex/abysstext-workbench/research/handoffs/abysstext-local-game-diagnosis-20261022.zh-CN.md]本机验证、限制与构建记录[/url]
+[h2]为什么做这个工具[/h2]
+我是老虎脱粒机汉化组的成员之一。做这个工具，一方面是想帮做汉化的朋友少花些时间找文本、整理条目和写 XML，把精力留给翻译本身；另一方面，也希望通过游戏内一键汉化，让大家在玩还没有完整汉化的模组时，能看懂内容、玩得顺一点。
+
+[h2]源码和反馈[/h2]
+GitHub：[url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor]laohei-moddeveloper/barotrauma-text-extractor[/url]
+
+有漏译、错译、卡顿，或哪里用着不顺手，都欢迎到 GitHub 提意见。能附上模组名称、原文和截图，会更容易定位问题。功能建议也欢迎，感谢大家帮忙把它做得更好。
+
+[url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor/issues]反馈问题与建议[/url] · [url=https://github.com/laohei-moddeveloper/barotrauma-text-extractor/tree/codex/abysstext-workbench]当前开发分支与使用说明[/url]
