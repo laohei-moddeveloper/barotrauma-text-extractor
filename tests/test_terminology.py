@@ -167,3 +167,18 @@ class TerminologyTests(unittest.TestCase):
             q=parse_qs(urlparse(request.full_url).query)['q'][0];return reply(q.replace('Reload','装填'))
         result=translate_unit(unit('Reload Coilgun'),'Simplified Chinese',network,glossary={'Coilgun':'电 磁 炮'})['unit']
         self.assertIn('电 磁 炮',result['translation']);self.assertFalse(result['issues'])
+
+    def test_game_actions_follow_object_context_instead_of_web_verb_meaning(self):
+        game=relevant_terms(unit('Reload the Coilgun before docking.'),'Simplified Chinese')
+        self.assertEqual(game.get('Reload'),'装填')
+        web=relevant_terms(unit('Reload the webpage to read the Coilgun guide.'),'Simplified Chinese')
+        self.assertNotIn('Reload',web)
+        breach=relevant_terms(unit('Seal the hull breach.'),'Simplified Chinese')
+        self.assertEqual(breach.get('Seal'),'封堵')
+        self.assertNotIn('Seal',relevant_terms(unit('Seal of approval.'),'Simplified Chinese'))
+        override=relevant_terms(unit('Reload the Coilgun.'),'Simplified Chinese',{'Reload':'自定动作'})
+        self.assertEqual(override.get('Reload'),'自定动作')
+
+    def test_medical_template_handles_known_condition_without_prior_health_key(self):
+        result=translate_unit(unit('Treat bleeding with Bandage.'),'Simplified Chinese',self.forbidden)['unit']
+        self.assertEqual(result['translation'],'使用绷带治疗出血。');self.assertFalse(result['issues'])

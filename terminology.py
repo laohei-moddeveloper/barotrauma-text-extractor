@@ -8,7 +8,7 @@ import sys
 
 ROOT=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 DATA=json.loads((ROOT/'assets/barotrauma-terms.json').read_text(encoding='utf-8'))
-REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]
+REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules2'
 ENTRIES=DATA['entries']
 # These nouns also have common non-game meanings; never force them in dialogue.
 AMBIGUOUS={'barotrauma','burn','stun','captain','engineer','mechanic','security officer','medical doctor','bleeding','psychosis','paralysis','lacerations','oxygen low'}
@@ -33,6 +33,13 @@ def relevant_terms(unit,target,glossary=None):
             ambiguous=word.casefold() in AMBIGUOUS
             allowed=not ambiguous or entry['key'] in keys or (health and entry['key'].startswith('affliction')) or (role and entry['key'].startswith('job'))
             if allowed:result[word]=entry['target']
+    if unit.source_language=='English' and target=='Simplified Chinese':
+        # Verbs are constrained by their object, never a global word replacement.
+        # "reload the webpage ... Coilgun guide" must retain software meaning.
+        for match in re.finditer(r'\b(reload(?:ing|s)?)\s+(?:the\s+|an?\s+)?(?:coilgun|railgun|shotgun|revolver|chaingun|harpoon gun|smg)\b',unit.source,re.IGNORECASE):
+            result[match[1]]='装填'
+        for match in re.finditer(r'\b(seal(?:ing|s)?)\s+(?:the\s+)?(?:hull\s+)?breaches?\b',unit.source,re.IGNORECASE):
+            result[match[1]]='封堵'
     # User-provided glossary belongs to the current project language pair.
     for key,value in (glossary or {}).items():
         if isinstance(key,str) and isinstance(value,str) and key.strip() and key.casefold() in text and value.strip():
