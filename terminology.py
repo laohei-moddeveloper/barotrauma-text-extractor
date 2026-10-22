@@ -8,7 +8,7 @@ import sys
 
 ROOT=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 DATA=json.loads((ROOT/'assets/barotrauma-terms.json').read_text(encoding='utf-8'))
-REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules2'
+REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules3'
 ENTRIES=DATA['entries']
 # These nouns also have common non-game meanings; never force them in dialogue.
 AMBIGUOUS={'barotrauma','burn','stun','captain','engineer','mechanic','security officer','medical doctor','bleeding','psychosis','paralysis','lacerations','oxygen low'}
@@ -36,7 +36,7 @@ def relevant_terms(unit,target,glossary=None):
     if unit.source_language=='English' and target=='Simplified Chinese':
         # Verbs are constrained by their object, never a global word replacement.
         # "reload the webpage ... Coilgun guide" must retain software meaning.
-        for match in re.finditer(r'\b(reload(?:ing|s)?)\s+(?:the\s+|an?\s+)?(?:coilgun|railgun|shotgun|revolver|chaingun|harpoon gun|smg)\b',unit.source,re.IGNORECASE):
+        for match in re.finditer(r'\b(reload(?:ing|s)?)\s+(?:the\s+|an?\s+)?(?:coilgun|railgun|shotgun|revolver|chaingun|harpoon gun|smg)\b(?!\s+(?:mod|page|webpage|guide|script|resource|lua)\b)',unit.source,re.IGNORECASE):
             result[match[1]]='装填'
         for match in re.finditer(r'\b(seal(?:ing|s)?)\s+(?:the\s+)?(?:hull\s+)?breach(?:es)?\b',unit.source,re.IGNORECASE):
             result[match[1]]='封堵'
@@ -84,3 +84,21 @@ def medical_template(unit,target,glossary=None):
     mapping.update({k.casefold():v for k,v in terms.items()})
     if condition.casefold() not in mapping or medicine.casefold() not in mapping:return None
     return match[1]+'使用'+mapping[medicine.casefold()]+'治疗'+mapping[condition.casefold()]+('。' if match[4] else '')+match[5]
+
+
+def action_terms(unit,target):
+    terms=relevant_terms(unit,target)
+    return {word:value for word,value in terms.items() if value in {'装填','封堵'} and word.casefold().startswith(('reload','seal'))}
+
+
+def repair_game_actions(unit,translated,target,glossary=None):
+    """Keep verbs in the MT input for grammar; fix known object-scoped mistranslations.
+
+    Called before protected noun/format values are restored, never inside them.
+    """
+    explicit={key.casefold() for key in (glossary or {})}
+    for source,word in action_terms(unit,target).items():
+        if source.casefold() in explicit:continue
+        variants=('重新加载','重新载入','重载页面','重新装填','重载') if word=='装填' else ('封印','印章')
+        for variant in variants:translated=translated.replace(variant,word)
+    return translated

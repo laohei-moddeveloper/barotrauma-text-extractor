@@ -13,7 +13,7 @@ from pathlib import Path
 import threading
 import ssl
 import time
-from terminology import REVISION, context_key, policy_key, relevant_terms, term_pattern, exact_term, medical_template
+from terminology import REVISION, context_key, policy_key, relevant_terms, term_pattern, exact_term, medical_template, action_terms, repair_game_actions
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -224,6 +224,11 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
     direct=exact_term(unit,target_language,glossary) or medical_template(unit,target_language,glossary)
     if direct is not None:return {unit.id:{'translation':direct,'issues':quality(unit.source,direct),'origin':'潜渊症术语 / 项目术语（未校对）'}}
     terms=relevant_terms(unit,target_language,glossary)
+    # A masked verb looks like an unknown noun to MT and damages word order.
+    # Leave known game verbs in the sentence, then repair only scoped bad senses.
+    explicit={key.casefold() for key in (glossary or {})}
+    for verb in action_terms(unit,target_language):
+        if verb.casefold() not in explicit:terms.pop(verb,None)
     pattern=term_pattern(tuple(terms))
     lowered={k.casefold():v for k,v in terms.items()}
     def request(text):
@@ -248,6 +253,7 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
         translated=request(masked) if any(c.isalpha() for c in unmasked_words) else masked
         format_tokens=[token for token,value in substitutions.items() if value.startswith(('‖','<'))]
         if shields_intact(masked,translated) and [translated.find(t) for t in format_tokens]==sorted(translated.find(t) for t in format_tokens):
+            translated=repair_game_actions(unit,translated,target_language,glossary)
             for token,value in substitutions.items():translated=translated.replace(token,value)
             if not any(re.search(r'[\u3400-\u9fff] +[\u3400-\u9fff]',v) for v in terms.values()):translated=chinese_spacing(translated,target_language)
             if not quality(unit.source,translated):
@@ -268,7 +274,7 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
                     if size+length>480:chunks.append(chunk);chunk='';size=0
                     chunk+=char;size+=length
                 if chunk:chunks.append(chunk)
-                output.append(leading+''.join(request(c) if any(x.isalpha() for x in c) else c for c in chunks)+trailing)
+                output.append(leading+''.join(repair_game_actions(unit,request(c),target_language,glossary) if any(x.isalpha() for x in c) else c for c in chunks)+trailing)
             if index<len(matches):output.append(lowered[matches[index].group().casefold()])
     translated=''.join(output)
     if not any(re.search(r'[\u3400-\u9fff] +[\u3400-\u9fff]',v) for v in terms.values()):translated=chinese_spacing(translated,target_language)

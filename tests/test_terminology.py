@@ -182,3 +182,20 @@ class TerminologyTests(unittest.TestCase):
     def test_medical_template_handles_known_condition_without_prior_health_key(self):
         result=translate_unit(unit('Treat bleeding with Bandage.'),'Simplified Chinese',self.forbidden)['unit']
         self.assertEqual(result['translation'],'使用绷带治疗出血。');self.assertFalse(result['issues'])
+
+    def test_weapon_verb_keeps_sentence_grammar_then_repairs_only_wrong_sense(self):
+        import re
+        calls=[]
+        def network(request,timeout):
+            q=parse_qs(urlparse(request.full_url).query)['q'][0];calls.append(q)
+            self.assertIn('Reload',q)
+            markers=re.findall(r'__ABYSSTEXT_\d+__',q)
+            return reply('在 '+markers[1]+' 到达气闸之前重新加载 '+markers[0]+'。')
+        result=translate_unit(unit('Reload the Coilgun before the Mudraptor reaches the airlock.'),'Simplified Chinese',network)['unit']
+        self.assertEqual(len(calls),1);self.assertEqual(result['translation'],'在泥偶迅猛龙到达气闸之前装填电磁枪。')
+        self.assertFalse(result['issues'])
+
+    def test_software_and_explicit_user_action_terms_are_not_postcorrected(self):
+        from terminology import repair_game_actions
+        self.assertEqual(repair_game_actions(unit('Reload the Coilgun guide.'),'重新加载网页','Simplified Chinese'),'重新加载网页')
+        self.assertEqual(repair_game_actions(unit('Reload the Coilgun.'),'自定重新加载','Simplified Chinese',{'Reload':'自定重新加载'}),'自定重新加载')
