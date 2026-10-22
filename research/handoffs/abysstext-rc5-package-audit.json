@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0-rc5",
+  "source_commit": "f416817cda9e3470893fb409286480218cbc80ef",
+  "passed": true,
+  "zip_sha256": {
+    "AbyssText-0.2.0-rc5-source.zip": "23a3da555d79cf5ac39d8be5d75adf0cb2ccd93b2b332f8ff0b840fea68c069f",
+    "AbyssText-0.2.0-rc5-Windows-x64.zip": "9fc7118d8d17d8e913f49f820085cb0d1ed158d607aa002832f5ed0817aeb763",
+    "AbyssTextLive-0.2.0-rc5.zip": "313d9960dea9f56ccf7b7bb7e4aa185afbaada8fc12e534519df68d66067d8fe"
+  },
+  "exe_sha256": "ff4c5b74e45708291fe768f6b1f35a19e3ba2c4c7b6235d102b294620329517d",
+  "frozen_online": {
+    "ok": true,
+    "translation": "打开舱门",
+    "issues": [],
+    "channel": "mymemory",
+    "elapsed_seconds": 0.937
+  },
+  "optional_frozen_checks": [
+    {
+      "name": "Google experimental frozen HTTPS",
+      "exit_code": 0,
+      "passed": true
+    }
+  ],
+  "google_online": {
+    "ok": true,
+    "translation": "打开舱口",
+    "issues": [],
+    "channel": "google",
+    "elapsed_seconds": 1.453
+  },
+  "source_all_tracked_files_match_commit_with_git_attributes": true,
+  "plugin_clean_payload_matches_checkout": true,
+  "windows_exe_matches_tested_exe": true,
+  "game_tested": false
+}
