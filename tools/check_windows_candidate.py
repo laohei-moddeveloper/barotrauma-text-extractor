@@ -1,5 +1,6 @@
 """Exercise the frozen executable outside the checkout without opening a GUI."""
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -66,7 +67,7 @@ def verify(exe, output):
         def check_human_import():
             if not human_report.is_file():return False
             import sqlite3
-            with sqlite3.connect(human_bank) as bank:
+            with closing(sqlite3.connect(human_bank)) as bank:
                 rows=bank.execute('SELECT scope,source,translation FROM pairs').fetchall()
             return json.loads(human_report.read_text(encoding='utf-8'))['records']==1 and rows==[('2742414355','Phantom Wrench','幻影扳手')]
         run('actual frozen human-memory import',['--import-human-memory',human_root,'--cache-path',human_bank,'-o',human_report],check_human_import)

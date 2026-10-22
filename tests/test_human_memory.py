@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -98,7 +99,9 @@ class HumanMemoryTests(unittest.TestCase):
         target=self.package('2861028841','Simplified Chinese','幽灵工具')
         report=build_memory([source,target],self.memory,[{'provider':'2861028841','targets':['1234567890']}])
         self.assertEqual(report['records'],1);self.assertIsNotNone(self.memory.lookup(self.unit(),'Simplified Chinese'))
-        stored=json.loads(sqlite3.connect(self.memory.path).execute('SELECT value FROM metadata').fetchone()[0]);self.assertEqual(stored['records'],1)
+        with closing(sqlite3.connect(self.memory.path)) as connection:
+            stored=json.loads(connection.execute('SELECT value FROM metadata').fetchone()[0])
+        self.assertEqual(stored['records'],1)
 
     def test_changed_ambiguous_keys_and_broken_placeholders_excluded(self):
         source=self.package('1234567890','English','Ghost [name] Tool')
