@@ -1,0 +1,27 @@
+{
+  "synthetic": true,
+  "real_network_requests": 0,
+  "game_tested": false,
+  "results": [
+    {
+      "mode": "spaced",
+      "cold_units": 1000,
+      "simulated_requests": 1000,
+      "cold_total_seconds": 0.5283,
+      "hot_lookups": 10000,
+      "hot_total_seconds": 0.5914,
+      "hot_additional_requests": 0
+    },
+    {
+      "mode": "joined",
+      "cold_units": 1000,
+      "simulated_requests": 1000,
+      "cold_total_seconds": 0.5275,
+      "hot_lookups": 10000,
+      "hot_total_seconds": 0.6171,
+      "hot_additional_requests": 0
+    }
+  ],
+  "compound_cache_maxsize": 512,
+  "partial_cache_maxsize": 512
+}
