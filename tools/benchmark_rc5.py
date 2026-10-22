@@ -39,9 +39,10 @@ def main():
         entries=[Entry(str(i),'<游戏内>',1,1,'游戏内显示','literal',f'Unseen item {i}',language='English',location={'live_priority':2}) for i in range(2000)]
         project=Project(Report('owned-fixture',entries))
         for unit in project.units:project.update(unit.id,'物品 '+unit.source.split()[-1])
+        bridges={}
         for name,cls in [('rc4',oldbridge.LiveBridge),('current',LiveBridge)]:
             directory=Path(temp)/name;directory.mkdir();(directory/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>')
-            bridge=cls(directory);bridge.publish(project,'one',True,False)
+            bridge=cls(directory);bridge.publish(project,'one',True,False);bridges[name]=bridge
             before=(directory/'Live/response.json').stat().st_mtime_ns;start=time.perf_counter()
             for _ in range(50):bridge.publish(project,'one',True,False)
             result[name+'_idle_50_seconds']=round(time.perf_counter()-start,6)
@@ -58,10 +59,27 @@ def main():
             result[name+'_repeated_template_http_calls']=len(calls)
         bridge=LiveBridge(Path(temp)/'current');bridge.delta_mode=True;bridge.session_id='test'
         bridge.publish(project,'one',True,False)
+        received={}
+        # First bring the simulated receiver to the identical 2000-row baseline.
+        # Comparing only the first 8-row packet to a first full snapshot is unfair.
+        for _ in range(300):
+            packet=json.loads((bridge.data/'response.json').read_text(encoding='utf-8'))
+            received.update(packet['translations'])
+            (bridge.data/'status.json').write_text(json.dumps({'protocol':1,'session_id':'test','applied_sequence':packet['sequence']}),encoding='utf-8')
+            bridge.publish(project,'one',True,False)
+            if len(received)==len(project.units) and bridge._pending is None:break
+        assert received=={u.source:u.translation for u in project.units}
+        for unit in project.units[:8]:project.update(unit.id,'修正物品 '+unit.source.split()[-1])
+        bridges['rc4'].publish(project,'one',True,False)
+        bridge.publish(project,'one',True,False)
         packet=json.loads((bridge.data/'response.json').read_text(encoding='utf-8'))
+        received.update(packet['translations'])
+        assert received=={u.source:u.translation for u in project.units}
+        result['same_update_8_of_2000']=True
+        result['rc4_update_response_bytes']=(bridges['rc4'].data/'response.json').stat().st_size
         result['current_delta_records']=len(packet['translations']);result['current_delta_bytes']=(bridge.data/'response.json').stat().st_size
-        result['current_delta_reduction_percent']=round((1-result['current_delta_bytes']/result['rc4_full_response_bytes'])*100,2)
-        result['idle_cpu_reduction_percent']=round((1-result['current_idle_50_seconds']/result['rc4_idle_50_seconds'])*100,2)
+        result['current_delta_reduction_percent']=round((1-result['current_delta_bytes']/result['rc4_update_response_bytes'])*100,2)
+        result['idle_publish_wall_time_reduction_percent']=round((1-result['current_idle_50_seconds']/result['rc4_idle_50_seconds'])*100,2)
     if args.output:
         args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(result,indent=2))
