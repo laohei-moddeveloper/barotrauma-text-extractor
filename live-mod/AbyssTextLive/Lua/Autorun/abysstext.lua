@@ -273,7 +273,7 @@ local function CollectPrefabs()
 end
 local function ReportStatus()
     pcall(function()
-        File.Write(live.."status.json",json.serialize({protocol=1,active=active,preloading=preload~=nil,
+        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="request-sequence-fix-20261022",active=active,preloading=preload~=nil,
             session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,applied_sequence=appliedSequence,last_queue_visits=lastQueueVisits,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
             tracked_controls=controlCount,last_error=lastError}))
@@ -556,7 +556,14 @@ Hook.Add("think", "abysstext.live", function()
                 local raw=File.Read(live .. "response.json")
                 if raw==responseRaw then return end
                 local response = json.parse(raw)
-                if response.protocol == 1 and response.request_id == requestId
+                -- Deltas are ordered by session-wide sequence. A newly hovered
+                -- control can submit the next request while an older delta is
+                -- in flight; rejecting that delta deadlocks both mailboxes.
+                -- Legacy responses still require the exact request ID.
+                local matchesRequest=response.request_id==requestId
+                local sessionDelta=response.delta==true and response.session_id==sessionId
+                    and response.source_language==sourceLanguage and response.target_language==targetLanguage
+                if response.protocol == 1 and (matchesRequest or sessionDelta)
                     and (response.session_id==nil or response.session_id==sessionId)
                     and (response.source_language==nil or response.source_language==sourceLanguage)
                     and (response.target_language==nil or response.target_language==targetLanguage) then
@@ -589,9 +596,12 @@ Hook.Add("think", "abysstext.live", function()
                         end
                         ApplyControls()
                     end
-                    revision=response.revision;responseRaw=raw;accepted=true
+                    revision=response.revision;responseRaw=raw
+                    -- Receiving an older translation does not acknowledge that
+                    -- the desktop has imported our newer request's records.
+                    if matchesRequest then accepted=true end
                     if response.delta then appliedSequence=response.sequence;ReportStatus() end
-                    if response.complete ~= false then pending = false end
+                    if matchesRequest and response.complete ~= false then pending = false end
                 end
             end
         end)

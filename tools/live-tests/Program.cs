@@ -311,4 +311,30 @@ local second=RequestData();assert(#second.records<=8 and second.request_id~=firs
 Tick(3);local status=json.parse(disk[root..'/Live/status.json'])
 assert(status.last_queue_visits<=64 and status.queued_records>0)
 """);
+Check("in-flight delta survives a newer visible request without acknowledging its import", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local first=RequestData()
+Delta(first,1,{});Tick(0.25)
+patches['abysstext.tooltip'](nil,{toolTip='New visible item'});Tick(0.25)
+local second=RequestData();assert(second.request_id~=first.request_id)
+Delta(first,2,{['Open hatch']='打开舱门'});Tick(0.25)
+assert(control.Text=='打开舱门','older in-flight delta was rejected')
+assert(json.parse(disk[root..'/Live/status.json']).applied_sequence==2)
+patches['abysstext.tooltip'](nil,{toolTip='Third visible item'});Tick(0.25)
+assert(RequestData().request_id==second.request_id,'old response acknowledged a new request')
+Delta(second,3,{Tool='工具'});Tick(0.25)
+assert(RequestData().request_id~=second.request_id)
+""");
+Check("different-request delta requires the complete matching session and language pair", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+for _,field in ipairs({'session_id','source_language','target_language'}) do
+ local packet={protocol=1,request_id='unknown-request',session_id=request.session_id,
+  source_language=request.source_language,target_language=request.target_language,
+  delta=true,sequence=1,base_sequence=0,reset=true,revision='1',keys=0,
+  translations={['Open hatch']='错误'},removed={}}
+ packet[field]=nil
+ disk[root..'/Live/response.json']=json.serialize(packet);Tick(0.25)
+ assert(control.Text=='Open hatch')
+ assert(json.parse(disk[root..'/Live/status.json']).applied_sequence==0)
+end
+""");
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

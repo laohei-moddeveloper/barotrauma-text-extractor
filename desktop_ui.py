@@ -820,7 +820,11 @@ class WorkbenchWindow:
         try:
             keys,literals,notes=self.bridge.publish(self.project,self.live_request,self.live_drafts.get(),complete=complete,
                 progress={'failed':len(self.live_failures),'last_error':next((v['error'] for v in reversed(list(self.live_failures.values()))),'')})
-            self.status.set(f"已准备游戏译文：{keys} 个语言键，{literals} 条显示文字；{len(notes)} 条需适配。等待客户端分批接收。")
+            message=f"已准备游戏译文：{keys} 个语言键，{literals} 条显示文字；{len(notes)} 条需适配。等待客户端分批接收。"
+            if self.live_failures:
+                reason=next(v['error'] for v in reversed(list(self.live_failures.values())))
+                message="翻译未完成："+reason+" "+message
+            self.status.set(message)
         except (OSError,ValueError) as error:self.error(error)
 
     def poll_live(self):
@@ -832,7 +836,8 @@ class WorkbenchWindow:
                         if getattr(self,'live_worker',False):self.cancel.set()
                         self.live_generate=False
                     running="试译运行中" if status.get('active') else "试译已停止"
-                    self.mode_label.set(f"{running} · 已采集 {status.get('submitted_records',0)} · 已译 {status.get('translated_records',0)}")
+                    channel=('Google' if self.online_channel.get()=='google' else 'MyMemory') if self.canon(self.provider.get())==FREE_ONLINE else self.canon(self.provider.get())
+                    self.mode_label.set(f"{running} · {channel} · 已提交 {status.get('submitted_records',0)} · 游戏已收译文 {status.get('translated_records',0)}")
                     if self.live_failures:
                         self.mode_label.set(self.mode_label.get()+f" · 失败 {len(self.live_failures)}（见诊断）")
                     if status.get('last_error') and not self.busy:self.status.set('游戏桥接：'+str(status['last_error']))

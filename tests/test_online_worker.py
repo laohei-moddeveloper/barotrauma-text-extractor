@@ -80,6 +80,9 @@ class OnlineWorkerTests(unittest.TestCase):
             self.assertEqual(len(response['translations']),3)
             self.assertEqual(response['progress']['failed'],1)
             self.assertEqual(response['progress']['last_error'],'one failed')
+            # Periodic bridge publication must not hide the provider failure
+            # behind a generic "waiting for client" status.
+            self.assertIn('one failed',window.status.set.call_args[0][0])
 
     def test_unusable_translation_is_reported_as_rejected_not_success(self):
         window=self.window();unit=window.project.units[0]
