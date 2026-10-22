@@ -2,6 +2,8 @@
 
 # 泥偶迅猛龙汉化 · AbyssText
 
+[下载 Windows 成品](https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/download/v0.2.0-rc5-workshop-20261022/AbyssText-0.2.0-rc5-Windows-x64.zip) · [全部安装包、源码与 SHA256](https://github.com/laohei-moddeveloper/barotrauma-text-extractor/releases/tag/v0.2.0-rc5-workshop-20261022) · [创意工坊](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)
+
 游戏内一键实时汉化工具与游戏外快捷翻译工作台。[当前工坊说明](workshop/description.bbcode.txt) · [2026-10-22 本机排查、用户实测反馈与安装构建](research/handoffs/abysstext-local-game-diagnosis-20261022.zh-CN.md)。原项目名称“译潜 AbyssText”与插件内部名称 AbyssTextLive 沿用，以兼容已有工程及连接目录。
 
 [English](README_EN.md) · [既有创意工坊条目](https://steamcommunity.com/sharedfiles/filedetails/?id=3823861796)
