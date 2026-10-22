@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -60,6 +61,19 @@ class IncrementalBridgeTests(unittest.TestCase):
         self.request();project=self.project(20);self.bridge.publish(project,'one',True)
         first=self.response();self.ack(first,'stale')
         self.bridge.publish(project,'two',True);self.assertEqual(self.response(),first)
+
+    def test_same_metadata_in_place_ack_cannot_stall_next_packet(self):
+        self.request();project=self.project(20);self.bridge.publish(project,'one',True)
+        status=self.root/'Live/status.json';fixed=1_700_000_000_000_000_000
+        first=self.response();self.ack(first);os.utime(status,ns=(fixed,fixed))
+        self.bridge.publish(project,'one',True);second=self.response()
+        self.assertEqual(second['sequence'],2)
+        stamp=(status.stat().st_mtime_ns,status.stat().st_size,status.stat().st_ino)
+        self.ack(second);os.utime(status,ns=(fixed,fixed))
+        self.assertEqual((status.stat().st_mtime_ns,status.stat().st_size,status.stat().st_ino),stamp)
+        self.bridge.publish(project,'one',True)
+        self.assertEqual(self.response()['sequence'],3)
+        self.assertEqual(len(self.response()['translations']),4)
 
     def test_restart_resets_delta_sequence_and_replays_cache(self):
         self.request();project=self.project(10);self.bridge.publish(project,'one',True)

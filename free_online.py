@@ -157,8 +157,8 @@ class TranslationCache:
         """At most four names per HTTP request; errors/results remain per unit.
 
         No waiting for a group to fill. Cached and local terms never enter the
-        combined request. A malformed/missing row falls back only for that row;
-        transport/quota failures are never retried here.
+        combined request. A malformed row falls back independently; a broken
+        envelope falls back per unit. Transport/quota errors are not retried.
         """
         if not 1<=len(work)<=4:raise ValueError('名称合并批次必须为 1–4 条')
         output=[];cold=[]
@@ -188,10 +188,10 @@ class TranslationCache:
         # Accept whitespace/case changes in exact row IDs, never inferred IDs.
         translated=re.sub(r'__[ \t]*ABYSSROW_[ \t]*(\d+)[ \t]*__',lambda m:'__ABYSSROW_'+m[1]+'__',translated,flags=re.IGNORECASE)
         matches=list(re.finditer(r'__ABYSSROW_(\d+)__',translated))
-        valid_ids=[int(m[1]) for m in matches]
+        valid_ids=[m[1] for m in matches]
         # A missing boundary can silently merge two names. Require every row
         # exactly once, in order, before accepting any part of the envelope.
-        envelope=valid_ids==list(range(len(cold))) and not translated[:matches[0].start()].strip()
+        envelope=valid_ids==list(map(str,range(len(cold)))) and not translated[:matches[0].start()].strip()
         rows={}
         if envelope:
             for n,match in enumerate(matches):

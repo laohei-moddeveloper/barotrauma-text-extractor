@@ -40,12 +40,12 @@ class LiveBridge:
         atomic_write(path,json.dumps({"ui_language":ui_language,"source_language":canonical_language(source_language),
             "target_language":canonical_language(target_language)},ensure_ascii=False))
 
-    def status(self):
+    def status(self, fresh=False):
         path=self.data/'status.json'
         if not path.exists():return None
         if path.is_symlink() or path.stat().st_size>16384:raise ValueError('Invalid companion status file')
         stamp=(path.stat().st_mtime_ns,path.stat().st_size,path.stat().st_ino)
-        if stamp==self._status_stamp:return self._status
+        if not fresh and stamp==self._status_stamp:return self._status
         data=json.loads(path.read_text(encoding='utf-8'))
         if not isinstance(data,dict) or data.get('protocol')!=1:raise ValueError('Invalid companion status protocol')
         self._status_stamp,self._status=stamp,data
@@ -141,7 +141,9 @@ class LiveBridge:
         result=lambda:(self._xml_count,len(self._literals),self._notes)
         progress=progress or {}
         if self.delta_mode and self._pending:
-            status=self.status() or {}
+            # Lua writes status in place. Same-size ACKs may share a timestamp
+            # on Windows; metadata alone must never suppress a protocol ACK.
+            status=self.status(fresh=True) or {}
             if status.get('session_id')!=self.session_id or type(status.get('applied_sequence')) is not int or status['applied_sequence']!=self._pending['sequence']:
                 return result() # Never overwrite an unacknowledged delta.
             self._delivered.update(self._pending['translations'])
