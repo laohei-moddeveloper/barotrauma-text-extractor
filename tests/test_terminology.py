@@ -106,6 +106,12 @@ class TerminologyTests(unittest.TestCase):
             cached=cache.translate(sample,'Simplified Chinese',self.forbidden,glossary={'Husk':'自定义画皮'})['unit']
             self.assertEqual(cached['translation'],result['translation']);self.assertEqual(len(calls),1)
 
+    def test_unknown_component_with_project_glossary_becomes_local_without_splitting_its_spelling(self):
+        for source,expected in [('HuskAbyssWalker','画皮巡渊者'),('AbyssWalkerHusk','巡渊者画皮')]:
+            result=translate_unit(unit(source,context='CharacterPrefab.Name'),'Simplified Chinese',self.forbidden,
+                                  glossary={'AbyssWalker':'巡渊者'})['unit']
+            self.assertEqual(result['translation'],expected);self.assertFalse(result['issues'])
+
     def test_partial_compounds_use_camelcase_and_preserve_context_formats(self):
         calls=[]
         def network(request,timeout):

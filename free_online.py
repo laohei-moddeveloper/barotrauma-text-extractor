@@ -313,7 +313,7 @@ def translate_unit(unit, target_language, opener=urlopen, cancelled=lambda: Fals
         # before exposing boundaries inside otherwise unknown creature names.
         spans=pattern.split(piece) if pattern else [piece]
         matches=list(pattern.finditer(piece)) if pattern else []
-        return ''.join(expand_creature_compounds(unit,span,target_language)+(matches[i].group() if i<len(matches) else '')
+        return ''.join(expand_creature_compounds(unit,span,target_language,lowered)+(matches[i].group() if i<len(matches) else '')
                        for i,span in enumerate(spans))
     def shield_piece(piece):
         if not piece:return ''

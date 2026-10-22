@@ -8,7 +8,7 @@ import sys
 
 ROOT=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 DATA=json.loads((ROOT/'assets/barotrauma-terms.json').read_text(encoding='utf-8'))
-REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules6'
+REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules7'
 ENTRIES=DATA['entries']
 CREATURE_TERMS={entry['source'].casefold():entry['target'] for entry in ENTRIES
                 if entry['key'].startswith('character.') and entry['source'].isascii() and entry['source'].isalpha()}
@@ -91,7 +91,7 @@ def partial_creature_parts(word):
     return head,tail,start,end
 
 
-def expand_creature_compounds(unit,text,target):
+def expand_creature_compounds(unit,text,target,preserve=()):
     """Add MT-only word boundaries; original game text is never modified.
 
     Lowercase names need explicit creature metadata. CamelCase boundaries can
@@ -110,7 +110,8 @@ def expand_creature_compounds(unit,text,target):
         if not creature and not (not word.isupper() and all(word[i].isupper() and word[i-1].islower() for i in boundaries)):return word
         # Preserve the unknown name, only expose its CamelCase word boundaries.
         remainder=word[start:end]
-        remainder=re.sub(r'(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])',' ',remainder)
+        if remainder.casefold() not in preserve:
+            remainder=re.sub(r'(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])',' ',remainder)
         offset=0;prefix=[]
         for part in head:prefix.append(word[offset:offset+len(part)]);offset+=len(part)
         offset=end;suffix=[]
