@@ -24,6 +24,26 @@ def reply(text):return io.BytesIO(json.dumps({'responseStatus':200,'responseData
 class TerminologyTests(unittest.TestCase):
     def forbidden(self,*a,**k):raise AssertionError('Local term unexpectedly used the network')
 
+    def test_every_curated_name_has_a_verified_key_and_zero_network_path(self):
+        from terminology import ENTRIES
+        self.assertEqual(len({e['key'] for e in ENTRIES}),len(ENTRIES))
+        for entry in ENTRIES:
+            with self.subTest(key=entry['key']):
+                result=translate_unit(unit(entry['source'],[entry['key']]),'Simplified Chinese',self.forbidden)['unit']
+                self.assertEqual(result['translation'],entry['target'])
+                self.assertFalse(result['issues'])
+
+    def test_ambiguous_new_names_require_keys_or_exact_name_field(self):
+        self.assertIsNone(exact_term(unit('Battery',context='Dialogue'),'Simplified Chinese'))
+        self.assertNotIn('Battery',relevant_terms(unit('A battery of questions.',context='Dialogue'),'Simplified Chinese'))
+        self.assertEqual(exact_term(unit('Battery',context='ItemPrefab.Name'),'Simplified Chinese'),'电池')
+        self.assertEqual(exact_term(unit('Blood loss',['afflictionname.bloodloss']),'Simplified Chinese'),'失血')
+
+    def test_expanded_equipment_and_medicine_terms_are_protected_in_prose(self):
+        terms=relevant_terms(unit('Put the Plasma Cutter and Blood Pack next to the Relay Component.'),'Simplified Chinese')
+        self.assertEqual({k:terms[k] for k in ['Plasma Cutter','Blood Pack','Relay Component']},
+                         {'Plasma Cutter':'等离子切割器','Blood Pack':'血袋','Relay Component':'继电组件'})
+
     def test_official_terms_are_instant_without_network(self):
         samples={'Coilgun':'电磁枪','Railgun':'轨道炮','Husk infection':'画皮寄生虫感染',
             'Mudraptor':'泥偶迅猛龙','Crawler':'藻鬃爬行者','Thalamus':'丘脑','Welding Fuel Tank':'焊接油箱'}

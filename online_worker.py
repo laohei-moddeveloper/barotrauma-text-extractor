@@ -48,6 +48,16 @@ class LiveFeed:
     def pending(self):
         with self.condition:return len(self.rows)
 
+    def pop_names(self,first,predicate):
+        """Take only already queued names of the same priority, at most four."""
+        group=[first]
+        with self.condition:
+            while len(group)<4 and self.rows:
+                row=min(self.rows.values(),key=lambda r:r[:2])
+                if row[0]!=live_priority(first[0]) or not predicate(row[2],row[3]):break
+                group.append(self.pop())
+        return group
+
     def wait_or_close(self):
         with self.condition:
             if self.rows:return True
@@ -62,7 +72,9 @@ class LiveFeed:
 
 
 def run_online(units,target,cache,cancelled,success,failure,warning=lambda message:None,glossary=None,channel='mymemory',feed=None,deferred=lambda ids:None):
-    iterator=iter(units);finished=0;limited=False
+    iterator=iter(units);finished=0;limited=False;held=None
+    def eligible(unit,terms):
+        return hasattr(cache,'translate_names') and cache.can_batch_name(unit,target,terms)
     def flush():
         try:getattr(cache,'flush_due',cache.flush)()
         except (OSError,ValueError):warning('本地缓存暂未保存；成功译文已保留，后续条目继续处理。')
@@ -73,26 +85,43 @@ def run_online(units,target,cache,cancelled,success,failure,warning=lambda messa
                 while len(pending)<2 and not cancelled() and not limited:
                     if feed is not None:work=feed.pop()
                     else:
-                        unit=next(iterator,None);work=(unit,glossary) if unit is not None else None
+                        unit=held if held is not None else next(iterator,None);held=None
+                        work=(unit,glossary) if unit is not None else None
                     if work is None:break
                     unit,terms=work
-                    future=pool.submit(cache.translate,unit,target,cancelled=cancelled,glossary=terms,channel=channel)
-                    pending[future]=unit
+                    group=[work]
+                    if eligible(unit,terms):
+                        if feed is not None:group=feed.pop_names(work,eligible)
+                        else:
+                            while len(group)<4:
+                                following=next(iterator,None)
+                                if following is None:break
+                                if live_priority(following)!=live_priority(unit) or not eligible(following,glossary):held=following;break
+                                group.append((following,glossary))
+                    if len(group)>1:
+                        future=pool.submit(cache.translate_names,group,target,cancelled=cancelled,channel=channel)
+                    else:future=pool.submit(cache.translate,unit,target,cancelled=cancelled,glossary=terms,channel=channel)
+                    pending[future]=group
                 if not pending:
                     if not limited and feed is not None and feed.wait_or_close():continue
                     break
                 done,_=wait(pending,timeout=.05,return_when=FIRST_COMPLETED)
                 for future in done:
-                    unit=pending.pop(future)
+                    group=pending.pop(future)
                     if cancelled():continue
-                    try:result=future.result()
+                    try:
+                        result=future.result()
+                        outcomes=result if len(group)>1 else [(group[0][0],result,None)]
                     except Exception as error:
-                        failure(unit,error)
-                        if getattr(error,'retry_after',0)>=3600:limited=True
-                    else:
-                        if not cancelled():success(result)
-                    finished+=1
-                    if finished%4==0:flush()
+                        outcomes=[(unit,None,error) for unit,_ in group]
+                    for unit,result,error in outcomes:
+                        if cancelled():break
+                        if error is not None:
+                            failure(unit,error)
+                            if getattr(error,'retry_after',0)>=3600:limited=True
+                        else:success(result)
+                        finished+=1
+                        if finished%4==0:flush()
             for future in pending:future.cancel()
         if finished%4:flush()
     finally:

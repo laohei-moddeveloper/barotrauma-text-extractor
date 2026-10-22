@@ -142,6 +142,71 @@ class TranslationCache:
         if not cancelled() and not result[unit.id]['issues']:self.remember(key,result[unit.id]['translation'])
         return result
 
+    @staticmethod
+    def can_batch_name(unit,target,glossary=None):
+        """Only short structured names without protected terms or prose."""
+        if target!='Simplified Chinese' or getattr(unit,'source_language',None)!='English':return False
+        text=getattr(unit,'source','')
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9 ,\-'()/]{1,59}",text.strip()):return False
+        keys,contexts=context_key(unit)
+        named=any(k.startswith(('entityname.','character.','afflictionname.','jobname.')) for k in keys) or any(
+            c in {'ItemPrefab.Name','CharacterPrefab.Name','AfflictionPrefab.Name','JobPrefab.Name'} for c in contexts)
+        return named and not relevant_terms(unit,target,glossary)
+
+    def translate_names(self,work,target,opener=urlopen,cancelled=lambda:False,channel='mymemory'):
+        """At most four names per HTTP request; errors/results remain per unit.
+
+        No waiting for a group to fill. Cached and local terms never enter the
+        combined request. A malformed/missing row falls back only for that row;
+        transport/quota failures are never retried here.
+        """
+        if not 1<=len(work)<=4:raise ValueError('名称合并批次必须为 1–4 条')
+        output=[];cold=[]
+        def single(unit,terms):
+            try:output.append((unit,self.translate(unit,target,opener,cancelled,terms,channel),None))
+            except Exception as error:output.append((unit,None,error))
+        for unit,terms in work:
+            if cancelled():return output
+            key=self.key(unit,target,terms,channel)
+            with self.lock:cached=self.rows.get(key)
+            if (cached is not None and not quality(unit.source,cached)) or not self.can_batch_name(unit,target,terms):
+                single(unit,terms)
+            else:cold.append((unit,terms,key))
+        if len(cold)<2:
+            for unit,terms,_ in cold:single(unit,terms)
+            return output
+        query='\n'.join(f'__ABYSSROW_{i}__ {unit.source.strip()}' for i,(unit,_,_) in enumerate(cold))
+        if len(query.encode())>480:
+            for unit,terms,_ in cold:single(unit,terms)
+            return output
+        try:
+            if cancelled():return output
+            with self.lock:self.metrics['requests']+=1
+            translated=fetch_text(query,'en',CODES[target],opener,channel)
+        except Exception as error:
+            return output+[(unit,None,error) for unit,_,_ in cold]
+        # Accept whitespace/case changes in exact row IDs, never inferred IDs.
+        translated=re.sub(r'__[ \t]*ABYSSROW_[ \t]*(\d+)[ \t]*__',lambda m:'__ABYSSROW_'+m[1]+'__',translated,flags=re.IGNORECASE)
+        matches=list(re.finditer(r'__ABYSSROW_(\d+)__',translated))
+        valid_ids=[int(m[1]) for m in matches]
+        # A missing boundary can silently merge two names. Require every row
+        # exactly once, in order, before accepting any part of the envelope.
+        envelope=valid_ids==list(range(len(cold))) and not translated[:matches[0].start()].strip()
+        rows={}
+        if envelope:
+            for n,match in enumerate(matches):
+                value=translated[match.end():matches[n+1].start() if n+1<len(matches) else len(translated)].strip()
+                if '\n' not in value and '\r' not in value and 'ABYSSROW' not in value.upper():rows[int(match[1])]=value
+        for i,(unit,terms,key) in enumerate(cold):
+            if cancelled():break
+            value=rows.get(i,'')
+            value=unit.source[:len(unit.source)-len(unit.source.lstrip())]+chinese_spacing(value,target)+unit.source[len(unit.source.rstrip()):]
+            if i in rows and not quality(unit.source,value):
+                self.remember(key,value)
+                output.append((unit,{unit.id:{'translation':value,'issues':[],'origin':'联网短名称合并翻译（未校对）'}},None))
+            else:single(unit,terms)
+        return output
+
     def flush_due(self):
         if time.monotonic()-self.last_flush>=5:self.flush()
 

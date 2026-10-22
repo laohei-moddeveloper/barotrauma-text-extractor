@@ -8,7 +8,7 @@ import sys
 
 ROOT=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 DATA=json.loads((ROOT/'assets/barotrauma-terms.json').read_text(encoding='utf-8'))
-REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules4'
+REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules5'
 ENTRIES=DATA['entries']
 # These nouns also have common non-game meanings; never force them in dialogue.
 AMBIGUOUS={'barotrauma','burn','stun','captain','engineer','mechanic','security officer','medical doctor','bleeding','psychosis','paralysis','lacerations','oxygen low'}
@@ -25,9 +25,11 @@ def relevant_terms(unit,target,glossary=None):
     keys,contexts=context_key(unit)
     health=any(k.startswith('affliction') for k in keys) or any('AfflictionPrefab.' in c for c in contexts)
     role=any(k.startswith('job') for k in keys) or any('JobPrefab.' in c for c in contexts)
+    named=any(c in {'ItemPrefab.Name','CharacterPrefab.Name','AfflictionPrefab.Name','JobPrefab.Name'} for c in contexts)
     result={}
     if unit.source_language=='English' and target=='Simplified Chinese':
         for entry in ENTRIES:
+            if entry.get('scope')=='named' and entry['key'] not in keys and not (named and entry['source'].casefold()==text.strip()):continue
             variants=[entry['source']]
             if entry['key'].startswith('character.'):
                 variants.extend({'Moloch':('Molochs',),'Thalamus':('Thalami','Thalamuses'),'Charybdis':('Charybdis',)}.get(entry['source'],(entry['source']+'s',)))
