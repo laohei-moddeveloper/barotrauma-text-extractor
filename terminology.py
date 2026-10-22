@@ -30,7 +30,7 @@ def relevant_terms(unit,target,glossary=None):
         for entry in ENTRIES:
             variants=[entry['source']]
             if entry['key'].startswith('character.'):
-                variants.append(entry['source']+('es' if entry['source'].lower().endswith(('s','x','ch','sh')) else 's'))
+                variants.extend({'Moloch':('Molochs',),'Thalamus':('Thalami','Thalamuses'),'Charybdis':('Charybdis',)}.get(entry['source'],(entry['source']+'s',)))
             for word in variants:
                 if word.casefold() not in text:continue
                 ambiguous=word.casefold() in AMBIGUOUS

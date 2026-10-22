@@ -204,6 +204,8 @@ class TerminologyTests(unittest.TestCase):
         terms=relevant_terms(unit('Crew members saw two Crawlers.'),'Simplified Chinese')
         self.assertEqual(terms['crew members'],'船员');self.assertEqual(terms['Crawlers'],'藻鬃爬行者')
         self.assertEqual(translate_unit(unit('Mudraptors'),'Simplified Chinese',self.forbidden)['unit']['translation'],'泥偶迅猛龙')
+        self.assertEqual(translate_unit(unit('Molochs'),'Simplified Chinese',self.forbidden)['unit']['translation'],'摩螺克')
+        self.assertEqual(translate_unit(unit('Thalami'),'Simplified Chinese',self.forbidden)['unit']['translation'],'丘脑')
 
     def test_creature_motion_does_not_add_vehicle_meaning(self):
         from terminology import repair_game_actions
