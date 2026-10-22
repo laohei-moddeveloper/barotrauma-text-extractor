@@ -1,0 +1,19 @@
+泥偶迅猛龙汉化 / AbyssText
+
+本目录包含游戏内客户端插件和 Workbench/ 下的独立 Windows 工作台压缩包。
+只订阅插件不会自动运行桌面工作台。
+
+1. 按 LuaCs 官方说明安装并启用客户端，在游戏模组列表启用本插件。
+2. 解压 Workbench/AbyssText-0.2.0-rc5-Windows-x64.zip 到普通文件夹，运行 BarotraumaTextExtractor.exe。
+3. 工作台“连接游戏 → 连接已安装插件”，选择当前这个包含 filelist.xml、Lua、Live、Workbench 的插件根目录。
+4. 源语言 English 或 Auto，目标 Simplified Chinese；建议游戏语言为简体中文。保持工作台运行，游戏里点一次“译潜 · 一键试译”。
+5. 已提交请求不等于收到译文；看“游戏已收译文”及失败原因。若免费渠道限流，可手动到翻译设置选择另一个内置渠道，程序不自动跨服务切换。
+6. 再次点击按钮或 F3 执行 abyss_stop 可停止。切换语言对时先停再开。旧 LocalMods 副本与工坊版只启用一份。
+
+桌面 EXE 不是 Lua 脚本，不要将它移进 Lua/Autorun。不要向本工坊发布目录加入自己的项目、日志、缓存、Live 请求/响应或凭据。
+
+The Windows ZIP in Workbench/ is a separate desktop application. Extract it outside the mod and run BarotraumaTextExtractor.exe; do not put the EXE in Lua/Autorun.
+Install LuaCs on the client, enable this companion, and connect the workbench to this exact enabled companion root folder. Keep the workbench open and click Translate in game. Stop with the same button or abyss_stop. Use only one copy of the companion.
+
+Runtime source commit: da1e4f000aa4271769121271ffe6389e4f5525a3
+Source: https://github.com/laohei-moddeveloper/barotrauma-text-extractor/tree/codex/abysstext-workbench
