@@ -199,3 +199,14 @@ class TerminologyTests(unittest.TestCase):
         from terminology import repair_game_actions
         self.assertEqual(repair_game_actions(unit('Reload the Coilgun guide.'),'重新加载网页','Simplified Chinese'),'重新加载网页')
         self.assertEqual(repair_game_actions(unit('Reload the Coilgun.'),'自定重新加载','Simplified Chinese',{'Reload':'自定重新加载'}),'自定重新加载')
+
+    def test_submarine_crew_and_plural_creature_names_keep_game_meaning(self):
+        terms=relevant_terms(unit('Crew members saw two Crawlers.'),'Simplified Chinese')
+        self.assertEqual(terms['crew members'],'船员');self.assertEqual(terms['Crawlers'],'藻鬃爬行者')
+        self.assertEqual(translate_unit(unit('Mudraptors'),'Simplified Chinese',self.forbidden)['unit']['translation'],'泥偶迅猛龙')
+
+    def test_creature_motion_does_not_add_vehicle_meaning(self):
+        from terminology import repair_game_actions
+        self.assertEqual(repair_game_actions(unit('The Crawler is moving toward the nest.'),'正在驶向巢穴','Simplified Chinese'),'正在移向巢穴')
+        self.assertEqual(repair_game_actions(unit('The submarine is moving toward the outpost.'),'正驶向前哨站','Simplified Chinese'),'正驶向前哨站')
+        self.assertEqual(repair_game_actions(unit('The Crawler is moving toward the nest.'),'正在驶向巢穴','Simplified Chinese',{'moving':'驶向'}),'正在驶向巢穴')

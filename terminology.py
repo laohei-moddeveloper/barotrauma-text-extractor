@@ -8,7 +8,7 @@ import sys
 
 ROOT=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
 DATA=json.loads((ROOT/'assets/barotrauma-terms.json').read_text(encoding='utf-8'))
-REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules3'
+REVISION=hashlib.sha256(json.dumps(DATA,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:16]+'-rules4'
 ENTRIES=DATA['entries']
 # These nouns also have common non-game meanings; never force them in dialogue.
 AMBIGUOUS={'barotrauma','burn','stun','captain','engineer','mechanic','security officer','medical doctor','bleeding','psychosis','paralysis','lacerations','oxygen low'}
@@ -28,11 +28,17 @@ def relevant_terms(unit,target,glossary=None):
     result={}
     if unit.source_language=='English' and target=='Simplified Chinese':
         for entry in ENTRIES:
-            word=entry['source']
-            if word.casefold() not in text:continue
-            ambiguous=word.casefold() in AMBIGUOUS
-            allowed=not ambiguous or entry['key'] in keys or (health and entry['key'].startswith('affliction')) or (role and entry['key'].startswith('job'))
-            if allowed:result[word]=entry['target']
+            variants=[entry['source']]
+            if entry['key'].startswith('character.'):
+                variants.append(entry['source']+('es' if entry['source'].lower().endswith(('s','x','ch','sh')) else 's'))
+            for word in variants:
+                if word.casefold() not in text:continue
+                ambiguous=word.casefold() in AMBIGUOUS
+                allowed=not ambiguous or entry['key'] in keys or (health and entry['key'].startswith('affliction')) or (role and entry['key'].startswith('job'))
+                if allowed:result[word]=entry['target']
+        # These are composition rules for submarine prose, not copied game keys.
+        for phrase in ('crew member','crew members'):
+            if phrase in text:result[phrase]='船员'
     if unit.source_language=='English' and target=='Simplified Chinese':
         # Verbs are constrained by their object, never a global word replacement.
         # "reload the webpage ... Coilgun guide" must retain software meaning.
@@ -101,4 +107,10 @@ def repair_game_actions(unit,translated,target,glossary=None):
         if source.casefold() in explicit:continue
         variants=('重新加载','重新载入','重载页面','重新装填','重载') if word=='装填' else ('封印','印章')
         for variant in variants:translated=translated.replace(variant,word)
+    motion=re.search(r'\b(?:is|are|was|were)\s+moving\s+(?:towards?|to)\b',unit.source,re.IGNORECASE)
+    creatures=[entry['source'] for entry in ENTRIES if entry['key'].startswith('character.')]
+    if unit.source_language=='English' and target=='Simplified Chinese' and motion and not any(key.startswith('moving') for key in explicit):
+        if any(re.search(r'(?<!\w)'+re.escape(name)+r'(?:s|es)?(?!\w)',unit.source,re.IGNORECASE) for name in creatures):
+            # "moving" does not imply that a creature drives a vehicle.
+            translated=translated.replace('驶向','移向').replace('驶往','移向').replace('开往','移向')
     return translated
