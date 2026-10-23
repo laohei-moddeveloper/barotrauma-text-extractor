@@ -1,0 +1,68 @@
+{
+  "source_commit": "314c95b809523b31d9312fdb73ed5e7d5cafb77e",
+  "version": "0.2.0-rc5",
+  "runtime_build": "local-reuse-fix-20261023",
+  "upload_run": 39904478449,
+  "download_verification_run": 39904775482,
+  "package_artifact": 12479791122,
+  "receipt_artifact": 12480332543,
+  "uploaded_at_hong_kong": "2026-10-23T13:13:57+08:00",
+  "workshop_title": "泥偶迅猛龙汉化——游戏内一键实时汉化工具|游戏外快捷翻译工作台",
+  "preserved_title_description_preview_visibility": true,
+  "workshop_file_size": "17426378",
+  "downloaded_bytes_verified": true,
+  "verified_file_count": 10,
+  "published_files": {
+    "filelist.xml": {
+      "bytes": 242,
+      "sha256": "722c9b938d06df212f373b47e022e65479b8048d4d09335e5b04abb6e333f53c"
+    },
+    "Live/Translations.xml": {
+      "bytes": 159,
+      "sha256": "b830a89bb656272f0d38396605e442c84f43c9ff1888ca8fde8c41357a6c17f4"
+    },
+    "Lua/Autorun/abysstext.lua": {
+      "bytes": 42511,
+      "sha256": "aca835228be965017b05127eed4512cc649b3152bd4403278f2e9ee3abe3ff37"
+    },
+    "Workbench/AbyssText-0.2.0-rc5-Windows-x64.zip": {
+      "bytes": 17364082,
+      "sha256": "c8b20eee44045882202c8809fadc759b5b5871a91c7de9d5713f3d721a0ff5a6"
+    },
+    "Workbench/EXE-SHA256.txt": {
+      "bytes": 95,
+      "sha256": "fe03adeca16c74bc56e9504b9b3e4d51f49feedc9eb7dda220040cb5e3efb76d"
+    },
+    "Workbench/HUMAN-MEMORY.zh-CN.md": {
+      "bytes": 3771,
+      "sha256": "7eeedbb34f087e3ee85f79659c9b867ce824cc4b2976ddf4e6ffc7d5b7c03f43"
+    },
+    "Workbench/INSTALL.txt": {
+      "bytes": 7142,
+      "sha256": "6a2798a590579f589d5cf95d60bd62ec1899eb0e01f0a6c1c3080baf40afc756"
+    },
+    "Workbench/LOCAL-REUSE-PERFORMANCE-20261023.zh-CN.md": {
+      "bytes": 2785,
+      "sha256": "fbb9cfc245b06f7b9b60c77949a7d366a72b8c63b918f38a96e26ffe2b182e3f"
+    },
+    "Workbench/RENDER-PERFORMANCE-20261023.zh-CN.md": {
+      "bytes": 2490,
+      "sha256": "b8a56150a137cec15af282d65902cc90e9320dd5fb0b1cd945433575b56be8cb"
+    },
+    "Workbench/SNAPSHOT-NATIVE-20261023.zh-CN.md": {
+      "bytes": 3101,
+      "sha256": "c3c8a19bc24d1ed451718676da5261a251c9f8e5cf77d003b42c8492a1dc9c5b"
+    }
+  },
+  "published_exe_sha256": "edf7073ba1f699b6a2fa9d1c09a12fb6537debfee1649ad4f0e51fc4b4244588",
+  "receipt": {
+    "target": "abysstext",
+    "publishedfileid": "3823861796",
+    "commit": "314c95b809523b31d9312fdb73ed5e7d5cafb77e",
+    "time_updated": 1792732437,
+    "upload_performed": false,
+    "downloaded_bytes_verified": true,
+    "verification": "Existing Workshop item downloaded; every file SHA256 and file set match the reviewed package"
+  },
+  "game_tested": false
+}
