@@ -1016,10 +1016,11 @@ class WorkbenchWindow:
                     if self.task_error:self.status.set("任务未全部完成："+self.task_error)
                 elif kind=="drafts" and self.project:
                     self.commit_editor()
-                    count,rejected=0,0
+                    count,rejected=0,0;selected_updated=False
                     for uid,result in value.items():
                         if uid in self.project.by_id and not self.project.by_id[uid].translation:
                             self.project.update(uid,result["translation"])
+                            selected_updated=selected_updated or uid==getattr(self,'current_id',None)
                             self.project.by_id[uid].origin=result.get("origin","机器翻译草稿（未校对）")
                             issues=quality(self.project.by_id[uid].source,result['translation'])
                             if issues:
@@ -1032,6 +1033,10 @@ class WorkbenchWindow:
                                 if not self.live_failures:self.task_error=''
                                 self.diagnostics.record('translated',uid)
                             count+=1
+                    # Another event or automatic publish can commit this
+                    # editor before the deferred table render. Keep it current
+                    # now so stale empty text cannot erase a received result.
+                    if selected_updated:self.reload_current_editor()
                     needs_render=True
                     if self.bridge and self.live_request:needs_publish=True
                     self.status.set(f"本批收到 {count} 条草稿，{rejected} 条格式不符未应用；请检查质量提示。")

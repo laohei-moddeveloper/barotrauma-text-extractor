@@ -17,6 +17,19 @@ from live_bridge import LiveBridge
 
 
 class OnlineWorkerTests(unittest.TestCase):
+    def test_multiple_results_cannot_commit_stale_editor_over_selected_translation(self):
+        window=self.window();window.live_worker=True
+        selected=window.project.units[0];window.current_id=selected.id;editor=['']
+        window.commit_editor=lambda:window.project.update(selected.id,editor[0]) if selected.translation!=editor[0] else None
+        window.reload_current_editor=lambda:editor.__setitem__(0,selected.translation)
+        scope={'session':'one','source':'English','target':'Simplified Chinese'}
+        for unit in window.project.units[:2]:
+            window.events.put(('drafts_scoped',{**scope,'result':{unit.id:{'translation':'新译文','issues':[]}}}))
+        window._draft_render_at=time.monotonic()+10
+        window.poll();window.commit_editor()
+        self.assertEqual(selected.translation,'新译文');self.assertEqual(editor[0],'新译文')
+        self.assertTrue(window._draft_render_pending)
+
     def test_live_render_coalesces_but_publishing_and_final_render_do_not_wait(self):
         window=self.window();window.live_worker=True
         scope={'session':'one','source':'English','target':'Simplified Chinese'}
