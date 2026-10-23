@@ -20,10 +20,21 @@
 
 - Linux Python 3.12：202 项通过，0 失败，0 跳过。新回归覆盖空/截断状态不 ACK、请求恢复、命名告警及清除、共享冲突/UTF8 BOM、同元数据恢复、非法协议拒绝和采集设置。
 - 隔离 MoonSharp/Lua：49 项通过。原有 42 项显式在兼容模式回归，新增默认轻量无四类高频 Hook、新页面发现、600 控件分步扫描、隐藏树跳过、严格模拟类型的无效属性访问为 0、LocalizedString 无 RichString 探测、响应解析恢复后清除旧错误。
-- Windows 真实 Tk 回归增加了空 ACK 时自动回传不弹 messagebox、不覆盖未确认包的场景，等待 CI。
-- Windows 实际 EXE、默认/Google HTTPS、ZIP 一致性和 SHA256：等待本提交 CI，随后补充证据。
+- Windows 真实 Tk 回归通过，含空 ACK 时自动回传不弹 messagebox、不覆盖未确认包的场景。Windows Python 202 项全部通过。
+- 最终 Windows 实际 EXE、默认/Google HTTPS、ZIP 一致性检查全部通过，下载后逐个核对三个 ZIP 的 SHA256 一致。首轮 a589623 的 MyMemory HTTPS 限流导致该次验证失败，其他功能检查及 Google HTTPS 通过；后续 3320fa4 的全套检查通过。没有把限流错误当成成功译文，也不保证免费服务后续一直可用。
 - 没有启动或控制用户游戏，没有替换用户 EXE、游戏 DLL、LocalMods、第三方模组或存档，没有新工坊/Release/main 合并。
 
 ## 用户验收
 
 更新配套程序和插件；已有人工缓存保留。确认运行标记 snapshot-native-fix-20261023，capture_mode=native，工作台显示轻量采集。测试同一大页面持续翻译、切换新页面、物品提示框、损坏文件后恢复及真实帧时间。若需特殊自绘文字，设置兼容采集后停止/重新开启试译，对比覆盖和流畅度。详见 docs/SNAPSHOT-NATIVE-20261023.zh-CN.md。
+
+## 最终候选
+
+已验证源码 `3320fa40b41adcdeaef3627619419a4a3acf2a9d`。固定入口：https://github.com/laohei-moddeveloper/barotrauma-text-extractor/actions/runs/39893485639/artifacts/12475881482 （登录 GitHub，保留期 14 天）。本轮不替用户自动更新工坊或正在运行的本机。
+
+```text
+6ce799d6383e8d9ea0cf427895a548869eb9ba3e62ea967dcdf08080e52a42e1  AbyssText-0.2.0-rc5-source.zip
+49f63629a6c32fedd09c7cd2f76a2e085c29e1818edb693a5f898c78f62bb693  AbyssText-0.2.0-rc5-Windows-x64.zip
+9f74eec12747238552fdd598b5cbaa90d4b377fee368f73a8cb1eed731a31c64  AbyssTextLive-0.2.0-rc5.zip
+c73cf1e440eb3dd7647636ea926f60ebc600ad56805fabe41e1d381e1e96d518  BarotraumaTextExtractor.exe
+```
