@@ -154,7 +154,7 @@ assert(found)
 """);
 Check("loaded inventory buff and creature names are queued before display", """
 ItemPrefab={Prefabs={{Name='Unseen wrench',Description='Repairs the hull'}}}
-AfflictionPrefab={Prefabs={{Name='Unseen fever',Description='Raises temperature',Descriptions={{Text='Severe fever',TextTag='fever.severe'}}}}}
+AfflictionPrefab={Prefabs={{Name='Unseen fever',Description='Raises temperature',Descriptions={{Text='Raises temperature',TextTag='fever.mild'},{Text='Severe fever',TextTag='fever.severe'}}}}}
 CharacterPrefab={Prefabs={{Name='Unseen crawler'}}}
 MissionPrefab={Prefabs={{Name='Unseen rescue',Description='Find the missing captain',Messages={'Speak to the captain'},SuccessMessage='Rescue complete',FailureMessage='Rescue failed'}}}
 JobPrefab={Prefabs={{Name='Unseen medic',Description='Treat injured crew'}}}
@@ -180,7 +180,7 @@ Check("bilingual controls and non-English source pair", """
 TextManager.AvailableLanguages={"Japanese","French"}
 TextManager.TextPacks={Japanese={{Texts={{Key="hello",Value={{String="こんにちは"}}}}}},French={}}
 control.Text="こんにちは"
-disk[root.."/Live/settings.json"]=json.serialize({ui_language="en",source_language="Japanese",target_language="French"})
+disk[root.."/Live/settings.json"]=json.serialize({ui_language="en",source_language="Japanese",target_language="French",compatibility_capture=true})
 """, """
 FlushTimers();assert(gameButton.Text=='AbyssText · Translate')
 commands.abyss_translate();FlushTimers();assert(gameButton.Text=='AbyssText · Stop')
@@ -306,7 +306,7 @@ pendingTimers[2]();assert(writes==1)
 """);
 Check("case insensitive source aliases still skip existing Chinese", """
 control.Text='已有汉化 English'
-disk[root..'/Live/settings.json']=json.serialize({source_language='en',target_language='zh-cn'})
+disk[root..'/Live/settings.json']=json.serialize({source_language='en',target_language='zh-cn',compatibility_capture=true})
 """, """
 FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
 assert(request.source_language=='English' and request.target_language=='Simplified Chinese')
@@ -505,5 +505,90 @@ for _,r in ipairs(RequestData().records) do
  if r.text=='Untranslated late label' then found=true end
 end
 assert(found,'later English text starved behind already-localized text')
+""");
+Check("default native mode installs no global font or per-control draw hooks", """
+disk[root..'/Live/settings.json']=json.serialize({})
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+assert(patches['abysstext.draw.1']==nil and patches['abysstext.draw.2']==nil)
+assert(patches['abysstext.controls']==nil and patches['abysstext.textdraw']==nil)
+assert(patches['abysstext.tooltip']~=nil)
+local request=RequestData();Delta(request,1,{['Open hatch']='打开舱门'});Tick(0.25)
+assert(control.Text=='打开舱门')
+Tick(2);local status=json.parse(disk[root..'/Live/status.json'])
+assert(status.capture_mode=='native' and status.render_hook_calls==0)
+commands.abyss_stop();assert(control.Text=='Open hatch')
+""");
+Check("native scan finds a newly opened page without render hooks", """
+disk[root..'/Live/settings.json']=json.serialize({compatibility_capture=false})
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+Delta(request,1,{['New page item']='新页面物品'}, {},true);Tick(0.25)
+local item={isControl=true,Text='New page item',Children={}}
+GUI.Canvas.Children={item}
+for frame=1,80 do Tick(0.02) end
+assert(item.Text=='新页面物品')
+commands.abyss_stop();assert(item.Text=='New page item')
+""");
+Check("native huge page scan yields after eight nodes per frame", """
+disk[root..'/Live/settings.json']=json.serialize({compatibility_capture=false})
+reads=0;GUI.Canvas.Children={}
+for i=1,600 do
+ GUI.Canvas.Children[i]=setmetatable({isControl=true,Children={}},{__index=function(_,key)
+  if key=='Text' then reads=reads+1;return 'Native unseen item' end
+ end})
+end
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers();assert(reads<=16)
+for frame=1,90 do local before=reads;Tick(0.01);assert(reads-before<=16,'unbounded native scan') end
+Tick(2);local status=json.parse(disk[root..'/Live/status.json'])
+assert(status.last_scan_nodes<=8 and status.render_hook_calls==0)
+""");
+Check("prefab preload does not probe absent managed properties", """
+missingReads=0
+local function Strict(fields)
+ return setmetatable(fields,{__index=function(_,key) missingReads=missingReads+1;error('absent managed property: '..key) end})
+end
+ItemPrefab={Prefabs={Strict({Name='Strict tool',Description='Strict description',ContentPackage={Path='/Installed/1234567890/filelist.xml'}})}}
+CharacterPrefab={Prefabs={Strict({Name='Strict creature',ContentPackage={Path='/Installed/1234567890/filelist.xml'}})}}
+AfflictionPrefab={Prefabs={Strict({Name='Strict fever',CauseOfDeathDescription='',SelfCauseOfDeathDescription='',Descriptions={},ContentPackage={Path='/Installed/1234567890/filelist.xml'}})}}
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+for frame=1,8 do Tick(0.05) end
+assert(missingReads==0,tostring(missingReads)..' missing-property probes')
+""");
+Check("native scan skips hidden subtrees and still captures visible text", """
+disk[root..'/Live/settings.json']=json.serialize({compatibility_capture=false})
+GUI.Canvas.Children={{Visible=false,Children={{isControl=true,Text='Hidden expensive text',Children={}}}},
+ {isControl=true,Visible=true,Text='Visible native text',Children={}}}
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+local found=false
+for _,record in ipairs(RequestData().records) do
+ assert(record.text~='Hidden expensive text')
+ if record.text=='Visible native text' then found=true end
+end
+assert(found)
+""");
+Check("localized prefab values use Value without missing RichString probes", """
+missingValueReads=0
+local function Localized(text)
+ return setmetatable({Value=text},{__index=function(_,key) missingValueReads=missingValueReads+1;error('absent localized field: '..key) end})
+end
+ItemPrefab={Prefabs={{Name=Localized('Localized tool'),Description=Localized('Localized description'),ContentPackage={Path='/Installed/1234567890/filelist.xml'}}}}
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+assert(missingValueReads==0,tostring(missingValueReads)..' absent rich-string property probes')
+local found=false
+for _,r in ipairs(RequestData().records) do if r.text=='Localized tool' then found=true end end
+assert(found)
+""");
+Check("transient game-side response parse warning clears after valid recovery", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+disk[root..'/Live/response.json']=''
+Tick(0.25)
+Delta(request,1,{['Open hatch']='打开舱门'});Tick(0.25)
+local status=json.parse(disk[root..'/Live/status.json'])
+assert(status.applied_sequence==1 and status.last_error=='')
 """);
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

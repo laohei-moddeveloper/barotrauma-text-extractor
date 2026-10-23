@@ -61,3 +61,5 @@ python tools/benchmark.py
 支持从本地订阅的老虎脱粒机汉化整合包及已核对的相关汉化包生成带来源缓存，可靠命中优先本地返回，未命中才使用所选渠道；离线模式可单独复用。操作与覆盖边界见 [人工汉化缓存说明](docs/HUMAN-MEMORY.zh-CN.md)。第三方译文和脚本不随源码分发。
 
 大量文本和持续试译的游戏端卡顿修复候选、升级及实测边界见 [渲染性能说明](docs/RENDER-PERFORMANCE-20261023.zh-CN.md)。
+
+一键翻译 JSON 竞态及默认轻量采集更新见 [使用说明与覆盖取舍](docs/SNAPSHOT-NATIVE-20261023.zh-CN.md)。

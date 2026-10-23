@@ -42,6 +42,62 @@ class IncrementalBridgeTests(unittest.TestCase):
         self.assertFalse(report.entries[0].location['mod_scope_invalid'])
         self.assertTrue(all(e.location['mod_scope_invalid'] for e in report.entries[3:]))
 
+    def test_truncated_status_never_acknowledges_or_drops_pending_delta(self):
+        self.request();project=self.project(12);self.bridge.publish(project,'one',True)
+        first=self.response();path=self.root/'Live/status.json'
+        for raw in [b'',b'   ',b'{"protocol":1,',b'\xff']:
+            path.write_bytes(raw)
+            self.assertIsNone(self.bridge.status(fresh=True))
+            self.bridge.publish(project,'one',True)
+            self.assertEqual(self.response(),first)
+            self.assertEqual(self.bridge._pending['sequence'],1)
+        self.ack(first);self.bridge.publish(project,'one',True)
+        self.assertEqual(self.response()['sequence'],2)
+
+    def test_truncated_request_is_retried_without_advancing_session_or_stamp(self):
+        path=self.root/'Live/requests.json'
+        for raw in [b'',b'{"protocol":1,"records":[',b'not json']:
+            path.write_bytes(raw)
+            self.assertIsNone(self.bridge.read_request())
+            self.assertEqual(self.bridge.session_id,'');self.assertIsNone(self.bridge._request_stamp)
+        packet={'protocol':1,'session_id':'repaired','request_id':'next','records':[{'text':'Recovered tool'}]}
+        path.write_text(json.dumps(packet))
+        report,_,_=self.bridge.read_request()
+        self.assertEqual(report.entries[0].text,'Recovered tool');self.assertEqual(self.bridge.session_id,'repaired')
+
+    def test_permanent_invalid_json_has_named_warning_and_clears_on_repair(self):
+        path=self.root/'Live/status.json';path.write_bytes(b'')
+        with patch('live_bridge.time.monotonic',return_value=10):self.assertIsNone(self.bridge.status(fresh=True))
+        with patch('live_bridge.time.monotonic',return_value=14):self.assertIn('status.json',self.bridge.read_warning)
+        path.write_text(json.dumps({'protocol':1,'active':True}))
+        self.assertTrue(self.bridge.status(fresh=True)['active']);self.assertEqual(self.bridge.read_warning,'')
+
+    def test_utf8_bom_status_and_transient_read_lock_recover(self):
+        path=self.root/'Live/status.json';path.write_bytes(b'\xef\xbb\xbf'+b'{"protocol":1,"active":true}')
+        with patch.object(Path,'open',side_effect=PermissionError('sharing violation')):
+            self.assertIsNone(self.bridge.status(fresh=True))
+        self.assertTrue(self.bridge.status(fresh=True)['active'])
+
+    def test_valid_json_with_wrong_protocol_still_rejected(self):
+        path=self.root/'Live/status.json';path.write_text('{"protocol":9}')
+        with self.assertRaisesRegex(ValueError,'status.json'):self.bridge.status(fresh=True)
+
+    def test_capture_mode_defaults_to_native_and_can_opt_into_compatibility(self):
+        self.bridge.configure('zh','English','Simplified Chinese')
+        data=json.loads((self.root/'Live/settings.json').read_text())
+        self.assertFalse(data['compatibility_capture'])
+        self.bridge.configure('zh','English','Simplified Chinese',compatibility_capture=True)
+        self.assertTrue(json.loads((self.root/'Live/settings.json').read_text())['compatibility_capture'])
+
+    def test_repaired_same_metadata_status_clears_prior_read_warning(self):
+        path=self.root/'Live/status.json';valid=b'{"protocol":1,"active":true}'
+        path.write_bytes(valid);self.bridge.status();original=path.stat()
+        path.write_bytes(b'')
+        with patch('live_bridge.time.monotonic',return_value=10):self.assertIsNone(self.bridge.status())
+        path.write_bytes(valid);os.utime(path,ns=(original.st_atime_ns,original.st_mtime_ns))
+        with patch('live_bridge.time.monotonic',return_value=14):self.assertIn('status.json',self.bridge.read_warning)
+        self.assertTrue(self.bridge.status()['active']);self.assertEqual(self.bridge.read_warning,'')
+
     def project(self,n):
         project=Project(Report('fixture',[entry('Unseen item '+str(i)) for i in range(n)]))
         for unit in project.units:project.update(unit.id,'物品 '+unit.source.split()[-1])

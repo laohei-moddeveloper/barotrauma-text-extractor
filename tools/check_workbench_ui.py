@@ -152,6 +152,18 @@ def main():
             response=json.loads((plugin/'Live/response.json').read_text(encoding='utf-8'))
             assert response['complete'] and 'Spineling Head' in response['translations']
             window.bridge=None;window.live_generate=False
+        # Reproduce the automatic-publish modal path with an empty live ACK.
+        race=Path(directory)/'RaceLive';race.mkdir();(race/'filelist.xml').write_text('<contentpackage name="AbyssTextLive"/>')
+        window.bridge=LiveBridge(race)
+        (race/'Live/requests.json').write_text(json.dumps({'protocol':1,'session_id':'race','request_id':'race','response_mode':'delta-v1','records':[]}))
+        window.bridge.read_request();window.live_request='race'
+        window.bridge.publish(window.project,'race',True)
+        original=(race/'Live/response.json').read_bytes()
+        (race/'Live/status.json').write_bytes(b'')
+        with patch('tkinter.messagebox.showerror') as popup:
+            window.publish_live(complete=False)
+            popup.assert_not_called()
+        assert (race/'Live/response.json').read_bytes()==original
         window.bridge=None;window.live_generate=False
         window.install_project(project);window.provider.set("离线复用");pump()
         root.geometry("1440x900");pump()

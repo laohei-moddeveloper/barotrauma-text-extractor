@@ -12,6 +12,8 @@ local sessionId = ""
 local accepted, generation = false, 0
 local appliedSequence, nextPreload, lastQueueVisits = 0, 0, 0
 local controlScan = nil
+local nextControlScan,lastScanNodes,renderCallbacks=0,0,0
+local compatibilityCapture=false
 local dictionaryEpoch=0
 local controlSlots,freeSlots,controlCursor={}, {}, 1
 local lastControlVisits=0
@@ -39,6 +41,7 @@ local patchSignatures, installed = {}, false
 local InstallPatches
 local preload, preloadSteps = nil, 0
 local lastError, translatedCount, nextStatus = "", 0, 0
+local lastErrorKey=""
 local captureTime,captureBudget=0,32
 local uiLanguage, sourceLanguage, targetLanguage = "zh", "English", "Simplified Chinese"
 local button, languageFile
@@ -58,9 +61,9 @@ for _, typeName in ipairs({"Barotrauma.TextPack", "Barotrauma.TextPack+Text", "B
 end
 local warned = {}
 local function Warn(key, message)
+    lastError,lastErrorKey=message,key
     if warned[key] then return end
     warned[key] = true
-    lastError=message
     print("[AbyssTextLive] " .. message)
     pcall(function() File.Write(live .. "last-error.txt", "[AbyssTextLive] " .. message) end)
 end
@@ -78,6 +81,7 @@ local function ReadSettings()
         sourceLanguage = settings.source_language or "English"
         if sourceLanguage == "Auto" then sourceLanguage = tostring(TextManager.DefaultLanguage) end
         targetLanguage = settings.target_language or "Simplified Chinese"
+        compatibilityCapture=settings.compatibility_capture==true
         local function Canonical(name)
             local lower=tostring(name):lower()
             local aliases={en="English",["zh-cn"]="Simplified Chinese",["zh-tw"]="Traditional Chinese"}
@@ -100,9 +104,16 @@ local function PacksFor(name)
     return TextManager.TextPacks[name]
 end
 local function Normalize(path) return tostring(path or ""):gsub("\\", "/"):gsub("/+$", "") end
-local function TextValue(value)
+local function TextValue(value,localized)
     if type(value) == "string" then return value end
     if value == nil then return "" end
+    if localized then
+        -- Loaded prefab fields are LocalizedString, not RichString. Avoid
+        -- exception-driven NestedStr/SanitizedValue probing for every field.
+        local ok,text=pcall(function() return value.Value end)
+        if ok and text~=nil then return tostring(text) end
+        return tostring(value)
+    end
     local ok, text = pcall(function() return value.NestedStr.Value end)
     if ok and text ~= nil then return tostring(text) end
     ok, text = pcall(function() return value.SanitizedValue end)
@@ -307,6 +318,12 @@ local function CollectLanguageKeys()
     end
 end
 local function CollectPrefabs()
+    -- Avoid exception-driven probing and per-prefab metadata allocations.
+    local fields={
+        ItemPrefab={"Name","Description"},CharacterPrefab={"Name"},
+        AfflictionPrefab={"Name","CauseOfDeathDescription","SelfCauseOfDeathDescription"},
+        MissionPrefab={"Name","Description","SuccessMessage","FailureMessage"},
+        JobPrefab={"Name","Description"}}
     -- Public loaded prefab registries cover inventories, status definitions and
     -- creature definitions before those objects appear on screen.
     for _, registry in ipairs({"ItemPrefab","AfflictionPrefab","CharacterPrefab","MissionPrefab","JobPrefab"}) do
@@ -324,13 +341,13 @@ local function CollectPrefabs()
                 for prefab in collection do
                     local owner="";pcall(function() owner=ModOwner(prefab.ContentPackage) end)
                     local function QueueValue(value,key,context)
-                        local text=TextValue(value)
+                        local text=TextValue(value,true)
                         local localized=(targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]")
                         if not localized then Observe(text,key,2,context,owner) end
                         preloadSteps=preloadSteps+1
                         if preloadSteps>=32 or queuedCount>=64 then preloadSteps=0;coroutine.yield() end
                     end
-                    for _, field in ipairs({"Name","Description","CauseOfDeathDescription","SelfCauseOfDeathDescription","SuccessMessage","FailureMessage"}) do
+                    for _, field in ipairs(fields[registry]) do
                         pcall(function()
                             -- Names already displayed in Chinese need no English->Chinese request.
                             QueueValue(prefab[field],nil,registry.."."..field)
@@ -353,10 +370,11 @@ local function CollectPrefabs()
 end
 local function ReportStatus()
     pcall(function()
-        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="bounded-render-fix-20261023",active=active,preloading=preload~=nil,
+        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="snapshot-native-fix-20261023",active=active,preloading=preload~=nil,
             session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,applied_sequence=appliedSequence,last_queue_visits=lastQueueVisits,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
             tracked_controls=controlCount,last_control_visits=lastControlVisits,
+            capture_mode=compatibilityCapture and "compatibility" or "native",render_hook_calls=renderCallbacks,last_scan_nodes=lastScanNodes,
             numeric_cache_entries=numericCache.count,tooltip_cache_entries=tooltipCache.count,
             render_cache_chars=numericCache.chars+tooltipCache.chars+ignoredCache.chars,language_reloads=languageReloads,last_error=lastError}))
     end)
@@ -429,7 +447,7 @@ local function ApplyControlBatch()
         lastControlVisits=lastControlVisits+1
         local row=component and controls[component]
         if row then
-            if captureTime-row.seen>10 then DropControl(component,row)
+            if captureTime-row.seen>(compatibilityCapture and 10 or 60) then DropControl(component,row)
             elseif row.epoch~=dictionaryEpoch then
                 local desired,deferred
                 if row.source then desired,deferred=Translated(row.source) end
@@ -488,6 +506,32 @@ local function SendRequest()
         print("[AbyssTextLive] " .. Ui("已请求试译；请保持桌面工作台运行。条数：", "Translation requested. Keep the desktop workbench running. Records: ") .. #records)
     end
 end
+local function StartControlScan()
+    controlScan=coroutine.create(function()
+        local scanned=0
+        local step=compatibilityCapture and 32 or 8
+        local function Walk(component)
+            if component==nil or scanned>=3000 then return end
+            scanned=scanned+1;lastScanNodes=lastScanNodes+1
+            local ok,visible=pcall(function() return component.Visible end)
+            if ok and visible==false then
+                if scanned%step==0 then coroutine.yield() end
+                return
+            end
+            CollectControls(component)
+            if scanned%step==0 then coroutine.yield() end
+            if component.Children~=nil then for child in component.Children do Walk(child) end end
+        end
+        pcall(function() Walk(Canvas()) end)
+    end)
+end
+local function ResumeControlScan(now)
+    if not controlScan then return end
+    local ok,err=coroutine.resume(controlScan)
+    if not ok then Warn("controls-scan",tostring(err));controlScan=nil
+    elseif coroutine.status(controlScan)=="dead" then controlScan=nil end
+    if not controlScan then nextControlScan=now+0.5 end
+end
 local function Begin()
     if active then return end
     warned,lastError={},""
@@ -502,6 +546,7 @@ local function Begin()
     nextPoll,nextSend,nextRequestNotice=0,0,0
     patternBudget,patternChars=64,8192
     responseRaw,revision="",""
+    nextControlScan=Timer.GetTime()+1;renderCallbacks=0
     sessionId=tostring(Timer.GetTime())..".session."..tostring(generation).."."..tostring(serial+1)
     if not installed then InstallPatches() end
     UpdateButton()
@@ -514,22 +559,8 @@ local function Begin()
     -- Let one native frame render; no synchronous translation in the draw loop.
     Timer.Wait(function()
         if not active or generation~=ownGeneration then return end
-        controlScan=coroutine.create(function()
-        local scanned = 0
-        local function Walk(component)
-            if scanned >= 3000 then return end
-            scanned = scanned + 1
-            CollectControls(component)
-            if scanned%32==0 then coroutine.yield() end
-            pcall(function() CollectControls(component.GUIComponent) end)
-            if component.Children ~= nil then
-                for child in component.Children do Walk(child) end
-            end
-        end
-        pcall(function() Walk(Canvas()) end)
-        end)
-        coroutine.resume(controlScan)
-        if coroutine.status(controlScan)=="dead" then controlScan=nil end
+        StartControlScan();lastScanNodes=0
+        ResumeControlScan(Timer.GetTime())
         local sentOk, sendError = pcall(SendRequest)
         if not sentOk then Warn("send", Ui("无法写入翻译请求：", "Cannot write translation request: ") .. tostring(sendError)) end
     end, 800)
@@ -570,6 +601,7 @@ end
 local function DrawText(_, parameters)
     if not active then return end
     local text = parameters["text"]
+    renderCallbacks=renderCallbacks+1
     if type(text) ~= "string" then return end
     if translatedValues[text] or ignoredCache.rows[text] then return end
     local translated = Translated(text)
@@ -578,6 +610,7 @@ end
 InstallPatches = function()
     -- Exact overload signatures checked against public game source. A missing
     -- overload is reported once rather than breaking game startup.
+    if compatibilityCapture then
     patchSignatures = {
         {"Microsoft.Xna.Framework.Graphics.SpriteBatch","System.String","Microsoft.Xna.Framework.Vector2","Microsoft.Xna.Framework.Color","Barotrauma.ForceUpperCase","System.Boolean"},
         {"Microsoft.Xna.Framework.Graphics.SpriteBatch","System.String","Microsoft.Xna.Framework.Vector2","Microsoft.Xna.Framework.Color","System.Single","Microsoft.Xna.Framework.Vector2","Microsoft.Xna.Framework.Vector2","Microsoft.Xna.Framework.Graphics.SpriteEffects","System.Single","Barotrauma.Alignment","Barotrauma.ForceUpperCase"}
@@ -590,7 +623,7 @@ InstallPatches = function()
     end
     local ok, err = pcall(function()
         Hook.Patch("abysstext.controls", "Barotrauma.GUI", "AddToUpdateList", {"Barotrauma.GUIComponent"},
-            function(_, parameters) CollectControls(parameters["component"]) end, Hook.HookMethodType.Before)
+            function(_, parameters) renderCallbacks=renderCallbacks+1;CollectControls(parameters["component"]) end, Hook.HookMethodType.Before)
     end)
     if not ok then Warn("controls", Ui("控件采集接口不可用：", "Control capture API unavailable: ") .. tostring(err)) end
     -- Popup/dropdown controls may not live below GUI.Canvas. Observe actual
@@ -598,9 +631,10 @@ InstallPatches = function()
     -- controls without waiting for another desktop response.
     local textOk, textErr = pcall(function()
         Hook.Patch("abysstext.textdraw", "Barotrauma.GUITextBlock", "Draw", {"Microsoft.Xna.Framework.Graphics.SpriteBatch"},
-            function(instance) CollectControls(instance) end, Hook.HookMethodType.Before)
+            function(instance) renderCallbacks=renderCallbacks+1;CollectControls(instance) end, Hook.HookMethodType.Before)
     end)
     if not textOk then Warn("textdraw", Ui("动态文字控件接口不可用：", "Dynamic text-control API unavailable: ") .. tostring(textErr)) end
+    else patchSignatures={} end
     local tooltipOk,tooltipErr=pcall(function()
         Hook.Patch("abysstext.tooltip","Barotrauma.GUIComponent","DrawToolTip",
             {"Microsoft.Xna.Framework.Graphics.SpriteBatch","Barotrauma.RichString","Microsoft.Xna.Framework.Rectangle","Barotrauma.Anchor","Barotrauma.Pivot"},
@@ -662,11 +696,9 @@ Hook.Add("think", "abysstext.live", function()
         if now >= nextSettings then nextSettings=now+2; pcall(ReadSettings) end
         return
     end
-    if controlScan then
-        local ok,err=coroutine.resume(controlScan)
-        if not ok then Warn("controls-scan",tostring(err));controlScan=nil
-        elseif coroutine.status(controlScan)=="dead" then controlScan=nil end
-    end
+    lastScanNodes=0
+    if not compatibilityCapture and not controlScan and now>=nextControlScan then StartControlScan() end
+    ResumeControlScan(now)
     if now>=nextPreload then nextPreload=now+0.05;ResumePreload() end
     if now >= nextPoll then
         nextPoll = now + 0.25
@@ -716,6 +748,7 @@ Hook.Add("think", "abysstext.live", function()
 
                     end
                     revision=response.revision;responseRaw=raw
+                    if lastErrorKey=="poll" then lastError,lastErrorKey="","" end
                     -- Receiving an older translation does not acknowledge that
                     -- the desktop has imported our newer request's records.
                     if matchesRequest then accepted=true end

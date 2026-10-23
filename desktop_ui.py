@@ -95,6 +95,7 @@ class WorkbenchWindow:
         self.diagnostics = TranslationDiagnostics(enabled=preferences_path is not False)
         self.live_drafts = tk.BooleanVar(value=True)
         self.live_online = tk.BooleanVar(value=False)
+        self.compatibility_capture=tk.BooleanVar(value=preferences.get("capture_mode")=="compatibility")
         self.online_cache=TranslationCache()
         self._style()
         self._build()
@@ -118,7 +119,7 @@ class WorkbenchWindow:
     def save_preferences(self):
         if not self.preferences_path:return
         from workbench import atomic_write
-        try:atomic_write(self.preferences_path,json.dumps({"language":self.ui_language,"provider":self.canon(self.provider.get()),"online_channel":self.online_channel.get(),"endpoint":self.api.endpoint,"model":self.api.model},ensure_ascii=False))
+        try:atomic_write(self.preferences_path,json.dumps({"language":self.ui_language,"provider":self.canon(self.provider.get()),"online_channel":self.online_channel.get(),"endpoint":self.api.endpoint,"model":self.api.model,"capture_mode":"compatibility" if self.compatibility_capture.get() else "native"},ensure_ascii=False))
         except OSError as error:self.status.set("设置保存失败："+str(error))
 
     def set_language(self,language):
@@ -133,7 +134,7 @@ class WorkbenchWindow:
 
     def write_live_preferences(self):
         if self.bridge:
-            self.bridge.configure(self.ui_language,self.project.source_language if self.project and self.source_language.get()=="Auto" else self.source_language.get(),self.target_language.get())
+            self.bridge.configure(self.ui_language,self.project.source_language if self.project and self.source_language.get()=="Auto" else self.source_language.get(),self.target_language.get(),compatibility_capture=self.compatibility_capture.get())
 
     def change_languages(self):
         if self.busy:
@@ -657,6 +658,9 @@ class WorkbenchWindow:
         channel=tk.StringVar(value=CHANNEL_LABELS[self.online_channel.get()])
         ttk.Combobox(frame,textvariable=channel,state="readonly",values=list(CHANNEL_LABELS.values())).pack(fill="x")
         ttk.Label(frame,text="MyMemory 有每日额度；Google 网页兼容是实验接口，大陆可能无法直连，稳定性无保证。只发送到你选的渠道，不自动转发至其他服务。",wraplength=700,style="Muted.TLabel").pack(anchor="w",pady=6)
+        capture=tk.BooleanVar(value=self.compatibility_capture.get())
+        ttk.Checkbutton(frame,text="兼容采集特殊绘制文字（开销较高；更改后停止再开启试译）",variable=capture).pack(anchor="w",pady=8)
+        ttk.Label(frame,text="默认轻量采集普通界面和提示框。若特殊模组文字未采集，可开启兼容模式；高频绘制接口可能导致掉帧。",wraplength=700,style="Muted.TLabel").pack(anchor="w")
         entries=[]
         for label,value,secret in [("兼容 API 地址（本地 Ollama 可用 http://127.0.0.1:11434/v1）",self.api.endpoint,False),("模型（需已安装 / 已可用）",self.api.model,False),("API 密钥（可空，只在当前会话内存中保留）",self.api.key,True)]:
             ttk.Label(frame,text=label,wraplength=590).pack(anchor="w",pady=(14,5))
@@ -673,6 +677,8 @@ class WorkbenchWindow:
                 self.live_attempted.clear();self.live_failures.clear();self.live_cooldown_until=0
             self.online_channel.set(chosen)
             self.live_online.set(online.get())
+            self.compatibility_capture.set(capture.get())
+            self.write_live_preferences()
             self.mode_label.set("已连接游戏" if self.bridge else "桌面工作台" + " · " + self.provider.get())
             dialog.destroy()
             self.save_preferences()
@@ -849,8 +855,11 @@ class WorkbenchWindow:
             if self.live_failures:
                 reason=next(v['error'] for v in reversed(list(self.live_failures.values())))
                 message="翻译未完成："+reason+" "+message
-            self.status.set(message)
-        except (OSError,ValueError) as error:self.error(error)
+            self.status.set(getattr(self.bridge,'read_warning','') or message)
+        except (OSError,ValueError) as error:
+            # Automatic bridge retries must not open a modal dialog and block
+            # the UI/ACK loop while the game is in the middle of a file write.
+            self.status.set("游戏桥接暂未写入："+str(error))
 
     def poll_live(self):
         try:
@@ -862,12 +871,15 @@ class WorkbenchWindow:
                         self.live_generate=False
                     running="试译运行中" if status.get('active') else "试译已停止"
                     channel=('Google' if self.online_channel.get()=='google' else 'MyMemory') if self.canon(self.provider.get())==FREE_ONLINE else self.canon(self.provider.get())
-                    self.mode_label.set(f"{running} · {channel} · 已提交 {status.get('submitted_records',0)} · 游戏已收译文 {status.get('translated_records',0)}")
+                    capture_mode="兼容采集" if status.get('capture_mode')=='compatibility' else "轻量采集"
+                    self.mode_label.set(f"{running} · {capture_mode} · {channel} · 已提交 {status.get('submitted_records',0)} · 游戏已收译文 {status.get('translated_records',0)}")
                     if self.live_failures:
                         self.mode_label.set(self.mode_label.get()+f" · 失败 {len(self.live_failures)}（见诊断）")
                     if status.get('last_error') and not self.busy:self.status.set('游戏桥接：'+str(status['last_error']))
             if self.bridge:
                 request=self.bridge.read_request()
+                warning=getattr(self.bridge,'read_warning','')
+                if warning:self.status.set(warning)
                 if request:
                     report,generate,request_id=request
                     requested_pair=(self.bridge.source_language,self.bridge.target_language)

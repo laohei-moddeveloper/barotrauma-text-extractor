@@ -49,3 +49,6 @@ function Delta(request,sequence,translations,removed,complete)
         delta=true,sequence=sequence,base_sequence=sequence-1,reset=sequence==1,revision=tostring(sequence),
         language_revision='empty-xml',keys=0,complete=complete==true,translations=translations,removed=removed or {}})
 end
+
+-- Broad rendering scenarios opt in; production defaults to native scanning.
+disk[root.."/Live/settings.json"]=json.serialize({compatibility_capture=true})

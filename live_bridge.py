@@ -27,6 +27,7 @@ class LiveBridge:
         self.source_language = "English"
         self.target_language = "Simplified Chinese"
         self._request_stamp=None;self._status_stamp=None;self._status=None
+        self._read_issues={}
         self.delta_mode=False;self._sequence=0;self._pending=None;self._delivered={};self._last_meta=None
         self._project=None;self._project_revision=-1;self._snapshot_version=0
         self._observed={};self._sources={};self._literals={};self._priorities={};self._keyed={}
@@ -34,20 +35,48 @@ class LiveBridge:
         self._legacy_signature=None
         self._last_sent_snapshot=-1;self._delta_remaining=False
 
-    def configure(self, ui_language, source_language, target_language):
+    def configure(self, ui_language, source_language, target_language, compatibility_capture=False):
         path=self.data/"settings.json"
         if path.is_symlink():raise ValueError("桥接输出不允许符号链接")
         atomic_write(path,json.dumps({"ui_language":ui_language,"source_language":canonical_language(source_language),
-            "target_language":canonical_language(target_language)},ensure_ascii=False))
+            "target_language":canonical_language(target_language),"compatibility_capture":bool(compatibility_capture)},ensure_ascii=False))
+
+    @property
+    def read_warning(self):
+        # Normal Lua File.Write briefly truncates the mailbox. Do not turn
+        # a normal racing read into a modal error; sustained damage stays visible.
+        now=time.monotonic()
+        names=[name for name,(since,_) in self._read_issues.items() if now-since>=3]
+        return '等待游戏桥接文件写入完整：'+', '.join(sorted(names)) if names else ''
+
+    def _snapshot(self,path,limit):
+        """One bounded, nonblocking attempt. No ACK/cache advances on failure."""
+        try:
+            if path.is_symlink():raise ValueError('桥接输入不允许符号链接：'+path.name)
+            before=path.stat()
+            if before.st_size>limit:raise ValueError('游戏桥接文件过大：'+path.name)
+            with path.open('rb') as stream:raw=stream.read(limit+1)
+            after=path.stat()
+            if len(raw)>limit:raise ValueError('游戏桥接文件过大：'+path.name)
+            stamp=lambda st:(st.st_mtime_ns,st.st_size,st.st_ino)
+            if stamp(before)!=stamp(after) or len(raw)!=after.st_size:raise json.JSONDecodeError('文件正在更新','',0)
+            data=json.loads(raw)
+        except (OSError,UnicodeError,json.JSONDecodeError):
+            self._read_issues.setdefault(path.name,(time.monotonic(),'incomplete'))
+            return None
+        self._read_issues.pop(path.name,None)
+        return data,stamp(after),hashlib.sha256(raw).hexdigest()
 
     def status(self, fresh=False):
         path=self.data/'status.json'
         if not path.exists():return None
-        if path.is_symlink() or path.stat().st_size>16384:raise ValueError('Invalid companion status file')
+        if path.is_symlink() or path.stat().st_size>16384:raise ValueError('无效的游戏桥接状态文件：status.json')
         stamp=(path.stat().st_mtime_ns,path.stat().st_size,path.stat().st_ino)
-        if not fresh and stamp==self._status_stamp:return self._status
-        data=json.loads(path.read_text(encoding='utf-8'))
-        if not isinstance(data,dict) or data.get('protocol')!=1:raise ValueError('Invalid companion status protocol')
+        if not fresh and stamp==self._status_stamp and path.name not in self._read_issues:return self._status
+        snapshot=self._snapshot(path,16384)
+        if snapshot is None:return None
+        data,stamp,_=snapshot
+        if not isinstance(data,dict) or data.get('protocol')!=1:raise ValueError('不支持的游戏桥接状态协议：status.json')
         self._status_stamp,self._status=stamp,data
         return data
 
@@ -56,11 +85,11 @@ class LiveBridge:
         if not path.exists(): return None
         if path.is_symlink() or path.stat().st_size>1024*1024: raise ValueError("无效或过大的游戏内请求")
         stat=path.stat();stamp=(stat.st_mtime_ns,stat.st_size,stat.st_ino)
-        if stamp==self._request_stamp:return None
-        raw = path.read_bytes()
-        digest = hashlib.sha256(raw).hexdigest()
+        if stamp==self._request_stamp and path.name not in self._read_issues:return None
+        snapshot=self._snapshot(path,1024*1024)
+        if snapshot is None:return None
+        data,stamp,digest=snapshot
         if digest==self.seen:self._request_stamp=stamp;return None
-        data = json.loads(raw)
         if not isinstance(data,dict) or data.get("protocol")!=1 or not isinstance(data.get("records"),list): raise ValueError("不支持的桥接协议")
         if len(data["records"])>8: raise ValueError("单次游戏内请求最多 8 条；请使用配套版本插件")
         report = Report(str(self.root))
