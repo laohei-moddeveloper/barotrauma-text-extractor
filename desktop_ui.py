@@ -871,7 +871,7 @@ class WorkbenchWindow:
                         self.live_generate=False
                     running="试译运行中" if status.get('active') else "试译已停止"
                     channel=('Google' if self.online_channel.get()=='google' else 'MyMemory') if self.canon(self.provider.get())==FREE_ONLINE else self.canon(self.provider.get())
-                    capture_mode="兼容采集" if status.get('capture_mode')=='compatibility' else "轻量采集"
+                    capture_mode={"compatibility":"兼容采集","native":"轻量采集"}.get(status.get("capture_mode"),"采集模式未知（需更新插件）")
                     self.mode_label.set(f"{running} · {capture_mode} · {channel} · 已提交 {status.get('submitted_records',0)} · 游戏已收译文 {status.get('translated_records',0)}")
                     if self.live_failures:
                         self.mode_label.set(self.mode_label.get()+f" · 失败 {len(self.live_failures)}（见诊断）")
