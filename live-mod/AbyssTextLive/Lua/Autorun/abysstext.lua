@@ -178,7 +178,7 @@ local function Observe(text, key, priority, context, modId)
     end
     if sent[identity]~=nil and (priority~=0 or sent[identity]==0) then return end
     if queuedCount >= 10000 or sentCount >= 20000 or queuedBytes + #text + #(key or "") > 1000000 then return end
-    queued[identity] = {text=text, key=key or "",priority=priority,context=context or "Visible GUI",mod_id=modId}
+    queued[identity] = {text=text, key=key or "",priority=priority,context=context or "Visible GUI",mod_id=modId or ""}
     Enqueue(identity,priority)
     queuedCount = queuedCount + 1
     queuedBytes = queuedBytes + #text + #(key or "")
@@ -288,7 +288,7 @@ local function CollectPrefabs()
 end
 local function ReportStatus()
     pcall(function()
-        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="request-sequence-fix-20261022",active=active,preloading=preload~=nil,
+        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="owner-metadata-fix-20261023",active=active,preloading=preload~=nil,
             session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,applied_sequence=appliedSequence,last_queue_visits=lastQueueVisits,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
             tracked_controls=controlCount,last_error=lastError}))

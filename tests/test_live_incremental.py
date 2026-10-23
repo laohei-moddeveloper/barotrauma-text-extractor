@@ -27,7 +27,20 @@ class IncrementalBridgeTests(unittest.TestCase):
         report,_,_=self.bridge.read_request()
         self.assertEqual(report.entries[0].location['mod_id'],'1234567890')
         packet['records'][0]['mod_id']='../bad';packet['request_id']='2';path.write_text(json.dumps(packet))
-        with self.assertRaisesRegex(ValueError,'来源'):self.bridge.read_request()
+        report,_,_=self.bridge.read_request()
+        self.assertEqual(report.entries[0].location['mod_id'],'')
+        self.assertTrue(report.entries[0].location['mod_scope_invalid'])
+
+    def test_optional_owner_null_numeric_and_malformed_do_not_drop_batch(self):
+        values=[None,'',1234567890,{},'../bad','１２３４５６７８９０',True,12345678901234567890]
+        packet={'protocol':1,'session_id':'owners','request_id':'1','records':[
+            {'text':'Ghost Tool '+str(i),'mod_id':value} for i,value in enumerate(values)]}
+        path=self.root/'Live/requests.json';path.write_text(json.dumps(packet))
+        report,_,_=self.bridge.read_request()
+        self.assertEqual(len(report.entries),8)
+        self.assertEqual([e.location['mod_id'] for e in report.entries],['','','1234567890','','','','',''])
+        self.assertFalse(report.entries[0].location['mod_scope_invalid'])
+        self.assertTrue(all(e.location['mod_scope_invalid'] for e in report.entries[3:]))
 
     def project(self,n):
         project=Project(Report('fixture',[entry('Unseen item '+str(i)) for i in range(n)]))

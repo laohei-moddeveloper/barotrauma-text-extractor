@@ -346,4 +346,12 @@ local seen={}
 for _,r in ipairs(RequestData().records) do seen[r.text]=r.mod_id end
 assert(seen.Tool=='1234567890' and seen['Scoped phantom wrench']=='2222222222')
 """);
+Check("native GUI emits explicit empty owner rather than null", "", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+local found=false
+for _,r in ipairs(RequestData().records) do
+ if r.text=='Open hatch' then assert(r.mod_id=='');found=true end
+end
+assert(found)
+""");
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

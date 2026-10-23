@@ -97,6 +97,8 @@ class HumanMemory:
         if not self.available or unit.source_language!='English' or target not in {'Simplified Chinese','Traditional Chinese'}:return None
         scopes=set()
         for e in getattr(unit,'occurrences',[]):
+            # A malformed explicit owner must not broaden a scoped lookup.
+            if e.location.get('mod_scope_invalid'):return None
             scope=e.location.get('mod_id','')
             if isinstance(scope,str) and scope:scopes.add(scope)
             parts=str(e.file).replace('\\','/').split('/')

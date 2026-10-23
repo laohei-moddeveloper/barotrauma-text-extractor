@@ -148,3 +148,8 @@ class HumanMemoryTests(unittest.TestCase):
         (root/'text.xml').write_text('<infotexts language="English"><Override><entityname.ghost>Ghost Tool</entityname.ghost></Override></infotexts>')
         rows,_,_=catalog(root,'English')
         self.assertEqual(rows,{'entityname.ghost':{'Ghost Tool'}})
+
+    def test_malformed_explicit_owner_cannot_broaden_to_unscoped_cache(self):
+        self.put(self.row());unit=self.unit(scope='')
+        unit.occurrences[0].location['mod_scope_invalid']=True
+        self.assertIsNone(self.memory.lookup(unit,'Simplified Chinese'))
