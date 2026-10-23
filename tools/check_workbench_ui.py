@@ -165,6 +165,23 @@ def main():
             popup.assert_not_called()
         assert (race/'Live/response.json').read_bytes()==original
         window.bridge=None;window.live_generate=False
+        # Offline reuse must include the saved machine cache and exact terms,
+        # not only imported human translations. The network is forbidden here.
+        from free_online import TranslationCache
+        from types import SimpleNamespace
+        local_cache=TranslationCache(Path(directory)/'offline-cache.json',SimpleNamespace(lookup=lambda *a:None))
+        offline=Project(Report('offline',[Entry('cached','<游戏内>',1,1,'游戏内显示','literal','Cached alien tool',language='English'),
+            Entry('term','<游戏内>',2,1,'游戏内显示','literal','Mudraptor',language='English')]))
+        cached=next(u for u in offline.units if u.source=='Cached alien tool')
+        local_cache.remember(local_cache.key(cached,'Simplified Chinese'),'已缓存的异星工具')
+        window.online_cache=local_cache;window.install_project(offline);window.provider.set('离线复用')
+        with patch('free_online.fetch_text',side_effect=AssertionError('Offline reuse opened network')):
+            window.start_drafts()
+            deadline=time.monotonic()+5
+            while window.busy and time.monotonic()<deadline:pump(0.1)
+        assert not window.busy
+        assert cached.translation=='已缓存的异星工具'
+        assert next(u for u in offline.units if u.source=='Mudraptor').translation=='泥偶迅猛龙'
         window.install_project(project);window.provider.set("离线复用");pump()
         root.geometry("1440x900");pump()
         if args.ui_language=="en":window.set_language("en");pump(0.6)

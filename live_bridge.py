@@ -1,5 +1,6 @@
 """User-selected local file bridge; no HTTP listener and no source mod rewriting."""
 import hashlib
+import heapq
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -195,10 +196,20 @@ class LiveBridge:
             wanted_meta=(request_id,complete and not self._xml_dirty,self._xml_hash,json.dumps(progress,sort_keys=True),drafts)
             if self._last_sent_snapshot==self._snapshot_version and not self._delta_remaining and wanted_meta==self._last_meta:return result()
             removed=[source for source in self._delivered if source not in self._literals][:8]
-            changed=sorted((source for source,target in self._literals.items() if self._delivered.get(source)!=target),
-                key=lambda source:(self._priorities.get(source,2),source))
-            translated={source:self._literals[source] for source in changed[:8-len(removed)]}
-            remaining=len(changed)>len(translated) or any(source not in self._literals and source not in removed for source in self._delivered)
+            # Only eight records can enter a packet. Keep at most eight
+            # candidates instead of sorting/allocating the entire backlog.
+            changed_count=0
+            def changes():
+                nonlocal changed_count
+                for source,target in self._literals.items():
+                    if self._delivered.get(source)!=target:
+                        changed_count+=1;yield source
+            changed=heapq.nsmallest(8-len(removed),changes(),key=lambda source:(self._priorities.get(source,2),source))
+            translated={source:self._literals[source] for source in changed}
+            # nsmallest(0) does not consume its iterator. Removals fill this
+            # packet; conservatively continue if any literals remain changed.
+            remaining=(changed_count>len(translated) if len(removed)<8 else
+                any(self._delivered.get(source)!=target for source,target in self._literals.items())) or any(source not in self._literals and source not in removed for source in self._delivered)
             packet['complete']=complete and not remaining and not self._xml_dirty
             meta=(request_id,packet['complete'],self._xml_hash,json.dumps(progress,sort_keys=True),drafts)
             if not translated and not removed and meta==self._last_meta:return result()

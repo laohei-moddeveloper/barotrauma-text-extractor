@@ -591,4 +591,26 @@ Delta(request,1,{['Open hatch']='打开舱门'});Tick(0.25)
 local status=json.parse(disk[root..'/Live/status.json'])
 assert(status.applied_sequence==1 and status.last_error=='')
 """);
+string originalModule=module;
+module=module.Replace("local function Translated(text)","local function Translated(text) translatedLookups=(translatedLookups or 0)+1");
+Check("unchanged controls skip repeated lookup but edits and corrections still apply", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+translatedLookups=0
+for i=1,20 do
+ Tick(0.5)
+ patches['abysstext.controls'](nil,{component=control})
+end
+assert(translatedLookups==0,'unchanged control repeated '..tostring(translatedLookups)..' lookups')
+Delta(request,1,{['Open hatch']='打开舱门'});Tick(0.25)
+assert(control.Text=='打开舱门')
+control.Text='Changed label';Tick(0.5);patches['abysstext.controls'](nil,{component=control})
+Delta(request,2,{['Changed label']='新标签'});Tick(0.25)
+assert(control.Text=='新标签')
+Delta(request,3,{['Changed label']='校对标签'});Tick(0.25)
+assert(control.Text=='校对标签')
+Delta(request,4,{}, {'Changed label'});Tick(0.25)
+assert(control.Text=='Changed label')
+commands.abyss_translate();assert(control.Text=='Changed label')
+""");
+module=originalModule;
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");

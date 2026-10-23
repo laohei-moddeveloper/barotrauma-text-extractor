@@ -4,6 +4,7 @@ import unittest
 import tempfile
 import ssl
 from pathlib import Path
+from unittest.mock import Mock
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from free_online import translate_unit, TranslationCache
@@ -12,6 +13,44 @@ from urllib.error import HTTPError, URLError
 
 
 class FreeOnlineTests(unittest.TestCase):
+    def test_local_lookup_reuses_scoped_cache_and_terms_without_http(self):
+        with tempfile.TemporaryDirectory() as directory:
+            human=SimpleNamespace(lookup=Mock(return_value=None))
+            cache=TranslationCache(Path(directory)/'cache.json',human)
+            unit=self.unit('Unusual tool')
+            cache.remember(cache.key(unit,'Simplified Chinese',channel='google'),'奇异工具')
+            self.assertIsNone(cache.lookup_local(unit,'Simplified Chinese'))
+            self.assertEqual(cache.lookup_local(unit,'Simplified Chinese',channel='google')['one']['translation'],'奇异工具')
+            self.assertIsNone(cache.lookup_local(unit,'Traditional Chinese',channel='google'))
+            self.assertIsNone(cache.lookup_local(unit,'Simplified Chinese',{'tool':'器具'},'google'))
+            self.assertEqual(cache.lookup_local(self.unit('Mudraptor'),'Simplified Chinese')['one']['translation'],'泥偶迅猛龙')
+            self.assertIsNone(cache.lookup_local(self.unit('Unrecognized creature'),'Simplified Chinese'))
+            self.assertEqual(cache.metrics['requests'],0)
+
+    def test_local_lookup_human_precedence_and_invalid_cache_rejection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            unit=self.unit('Tool [name]')
+            human=SimpleNamespace(lookup=Mock(return_value=None))
+            cache=TranslationCache(Path(directory)/'cache.json',human)
+            key=cache.key(unit,'Simplified Chinese')
+            cache.remember(key,'丢失占位符')
+            self.assertIsNone(cache.lookup_local(unit,'Simplified Chinese'))
+            self.assertNotIn(key,cache.rows)
+            cache.remember(key,'旧工具 [name]')
+            human.lookup.return_value={'one':{'translation':'人工工具 [name]','issues':[]}}
+            self.assertEqual(cache.lookup_local(unit,'Simplified Chinese')['one']['translation'],'人工工具 [name]')
+            self.assertEqual(cache.metrics['requests'],0)
+
+    def test_batched_human_hits_are_queried_once_and_never_sent_online(self):
+        with tempfile.TemporaryDirectory() as directory:
+            human=SimpleNamespace(lookup=Mock(side_effect=lambda unit,target:{unit.id:{'translation':'人工译文','issues':[]}}))
+            cache=TranslationCache(Path(directory)/'cache.json',human)
+            work=[(SimpleNamespace(id=str(i),source='Alien tool '+str(i),source_language='English'),None) for i in range(4)]
+            def forbidden(*a,**k):raise AssertionError('Local hit went online')
+            result=cache.translate_names(work,'Simplified Chinese',opener=forbidden)
+            self.assertEqual(len(result),4);self.assertEqual(human.lookup.call_count,4)
+            self.assertTrue(all(error is None for _,_,error in result))
+
     def test_existing_chinese_never_calls_network(self):
         def forbidden(*args,**kwargs):raise AssertionError('Chinese entered network queue')
         for text in ['已有中文','已有中文 English [name]']:

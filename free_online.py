@@ -130,8 +130,12 @@ class TranslationCache:
         if any(str(k).casefold() in unit.source.casefold() for k in (glossary or {})):return None
         return self.human_memory.lookup(unit,target)
 
-    def translate(self,unit,target,opener=urlopen,cancelled=lambda:False,glossary=None,channel="mymemory"):
-        if cancelled():raise ValueError('翻译已取消；当前条目未写入。')
+    def lookup_local(self,unit,target,glossary=None,channel="mymemory"):
+        """Resolve reliable local results only; never open a network request.
+
+        Keep human-memory scope, terminology policy and provider/language cache
+        keys identical to online translation. A miss remains a miss.
+        """
         human=self.human_match(unit,target,glossary)
         if human is not None:
             with self.lock:self.metrics['human_hits']+=1
@@ -140,14 +144,23 @@ class TranslationCache:
         with self.lock:cached=self.rows.get(key)
         if cached is not None and not quality(unit.source,cached):
             with self.lock:self.metrics['unit_hits']+=1
-            return {unit.id:{'translation':cached,'issues':[]}}
+            return {unit.id:{'translation':cached,'issues':[],'origin':'本地联网译文缓存（未校对）'}}
         if cached is not None:
             with self.lock:
                 removed=self.rows.pop(key,None)
                 if removed is not None:self.bytes-=self.entry_bytes(key,removed);self.dirty=True;self.version+=1
-        local=exact_term(unit,target,glossary)
-        if local is not None:
+        local=exact_term(unit,target,glossary) or medical_template(unit,target,glossary)
+        if local is not None and not quality(unit.source,local):
             with self.lock:self.metrics['local_terms']+=1
+            return {unit.id:{'translation':local,'issues':[],'origin':'潜渊症术语 / 项目术语（未校对）'}}
+        return None
+
+    def translate(self,unit,target,opener=urlopen,cancelled=lambda:False,glossary=None,channel="mymemory"):
+        if cancelled():raise ValueError('翻译已取消；当前条目未写入。')
+        local=self.lookup_local(unit,target,glossary,channel)
+        if cancelled():raise ValueError('翻译已取消；当前条目未写入。')
+        if local is not None:return local
+        key=self.key(unit,target,glossary,channel)
         result=translate_unit(unit,target,opener,cancelled,glossary,
             lambda text:self.request_text(text,unit,target,opener,cancelled,glossary,channel),channel=channel)
         if not cancelled() and not result[unit.id]['issues']:self.remember(key,result[unit.id]['translation'])
@@ -179,8 +192,12 @@ class TranslationCache:
         for unit,terms in work:
             if cancelled():return output
             key=self.key(unit,target,terms,channel)
-            with self.lock:cached=self.rows.get(key)
-            if self.human_match(unit,target,terms) is not None or (cached is not None and not quality(unit.source,cached)) or not self.can_batch_name(unit,target,terms):
+            try:local=self.lookup_local(unit,target,terms,channel)
+            except Exception as error:
+                output.append((unit,None,error));continue
+            if cancelled():return output
+            if local is not None:output.append((unit,local,None))
+            elif not self.can_batch_name(unit,target,terms):
                 single(unit,terms)
             else:cold.append((unit,terms,key))
         if len(cold)<2:

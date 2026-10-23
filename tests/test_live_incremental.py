@@ -119,6 +119,28 @@ class IncrementalBridgeTests(unittest.TestCase):
             for _ in range(50):self.bridge.publish(project,'one',True)
         write.assert_not_called()
 
+    def test_large_backlog_selects_same_priority_order_with_bounded_top_k(self):
+        self.request();project=self.project(2000)
+        self.bridge._sync(project,True)
+        for index,source in enumerate(self.bridge._literals):self.bridge._priorities[source]=index%4
+        expected=sorted(self.bridge._literals,key=lambda source:(self.bridge._priorities[source],source))
+        received=[]
+        for _ in range(3):
+            self.bridge.publish(project,'one',True);packet=self.response()
+            received.extend(packet['translations']);self.ack(packet)
+        self.assertEqual(received,expected[:24])
+
+    def test_eight_removals_do_not_hide_waiting_translation(self):
+        self.request();project=self.project(8);self.bridge.publish(project,'one',True)
+        packet=self.response();self.ack(packet)
+        for unit in project.units:project.update(unit.id,'')
+        project.merge_live(Report('isolated',[entry('Brand new tool')]))
+        unit=next(u for u in project.units if u.source=='Brand new tool');project.update(unit.id,'全新工具')
+        self.bridge.publish(project,'one',True);packet=self.response()
+        self.assertEqual(len(packet['removed']),8);self.assertFalse(packet['complete']);self.ack(packet)
+        self.bridge.publish(project,'one',True)
+        self.assertEqual(self.response()['translations'],{'Brand new tool':'全新工具'})
+
     def test_unacknowledged_delta_is_not_overwritten_and_all_chunks_arrive(self):
         self.request();project=self.project(25);received={}
         self.bridge.publish(project,'one',True)

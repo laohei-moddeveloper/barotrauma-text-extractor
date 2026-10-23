@@ -6,7 +6,7 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 
 from online_worker import run_online, LiveFeed
 from translation_diagnostics import TranslationDiagnostics
@@ -17,6 +17,27 @@ from live_bridge import LiveBridge
 
 
 class OnlineWorkerTests(unittest.TestCase):
+    def test_live_render_coalesces_but_publishing_and_final_render_do_not_wait(self):
+        window=self.window();window.live_worker=True
+        scope={'session':'one','source':'English','target':'Simplified Chinese'}
+        with patch('desktop_ui.time.monotonic',return_value=10):
+            for unit in window.project.units[:2]:
+                window.events.put(('drafts_scoped',{**scope,'result':{unit.id:{'translation':'译文','issues':[]}}}))
+                window.poll()
+            self.assertEqual(window.refresh.call_count,1)
+            self.assertEqual(window.publish_live.call_count,2)
+            window.events.put(('draft_done',None));window.poll()
+            self.assertEqual(window.refresh.call_count,2)
+            self.assertFalse(window._draft_render_pending)
+
+    def test_pending_live_render_runs_after_interval_without_new_results(self):
+        window=self.window();window.live_worker=True
+        window._draft_render_pending=True;window._draft_render_at=10.25
+        with patch('desktop_ui.time.monotonic',return_value=10.1):window.poll()
+        window.refresh.assert_not_called()
+        with patch('desktop_ui.time.monotonic',return_value=10.3):window.poll()
+        window.refresh.assert_called_once();self.assertFalse(window._draft_render_pending)
+
     def window(self):
         window=WorkbenchWindow.__new__(WorkbenchWindow)
         window.project=Project(Report('isolated',[Entry(str(i),'<游戏内>',i+1,1,'游戏内显示','literal','English '+str(i),language='English',location={'live_priority':1}) for i in range(4)]))

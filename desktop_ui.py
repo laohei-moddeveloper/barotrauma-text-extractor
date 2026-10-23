@@ -738,7 +738,9 @@ class WorkbenchWindow:
                 remaining=[]
                 for unit in snapshots:
                     if task_cancel.is_set():return
-                    result=self.online_cache.human_match(unit,target_language,glossary)
+                    result=(self.online_cache.lookup_local(unit,target_language,glossary,channel)
+                            if provider=="离线复用" else self.online_cache.human_match(unit,target_language,glossary))
+                    if task_cancel.is_set():return
                     if result:self.events.put(('drafts_scoped',{**scope,'result':result}))
                     else:remaining.append(unit)
                 if provider=="离线复用":return
@@ -1034,8 +1036,13 @@ class WorkbenchWindow:
                     if self.bridge and self.live_request:needs_publish=True
                     self.status.set(f"本批收到 {count} 条草稿，{rejected} 条格式不符未应用；请检查质量提示。")
         except queue.Empty:pass
-        if needs_render:
+        # Publishing stays immediate. Expensive table/editor rebuilding can
+        # coalesce during a sustained live stream, with a final render on done.
+        self._draft_render_pending=getattr(self,'_draft_render_pending',False) or needs_render
+        now=time.monotonic()
+        if self._draft_render_pending and (not getattr(self,'live_worker',False) or now>=getattr(self,'_draft_render_at',0)):
             self.reload_current_editor();self.refresh(reset_page=False);self.update_summary()
+            self._draft_render_pending=False;self._draft_render_at=now+0.25
         if needs_publish:self.publish_live(complete=False)
         self.diagnostics.flush()
         self.root.after(100,self.poll)

@@ -370,7 +370,7 @@ local function CollectPrefabs()
 end
 local function ReportStatus()
     pcall(function()
-        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="snapshot-native-fix-20261023",active=active,preloading=preload~=nil,
+        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="local-reuse-fix-20261023",active=active,preloading=preload~=nil,
             session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,applied_sequence=appliedSequence,last_queue_visits=lastQueueVisits,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
             tracked_controls=controlCount,last_control_visits=lastControlVisits,
@@ -420,6 +420,9 @@ ApplyControl = function(component,current)
     local ok=pcall(function()
         current=current or TextValue(component.Text)
         local old=originals[component]
+        -- Re-observe live text to catch updates, but do not resolve the same
+        -- dictionary entry or probe TextGetter again for an unchanged label.
+        if row.epoch==dictionaryEpoch and row.current==current then return end
         if old and current~=old.display then originals[component]=nil;old=nil end
         local source=old and TextValue(old.value) or current
         local target,deferred=Translated(source)
@@ -435,6 +438,7 @@ ApplyControl = function(component,current)
             else component.Text=target end
             originals[component]={value=original,display=TextValue(component.Text)}
         end
+        row.current=(originals[component] and originals[component].display) or (not target and current) or nil
     end)
     if not ok then DropControl(component,row) end
 end

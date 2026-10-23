@@ -1,0 +1,35 @@
+{
+  "synthetic": true,
+  "game_tested": false,
+  "candidate_count": 20000,
+  "iterations": 40,
+  "notes": "Only candidate selection is timed; excludes XML, IPC, rendering and network.",
+  "full_sort": {
+    "mean_ms": 4.163157050015798,
+    "peak_temporary_bytes": 1488024,
+    "selected": [
+      "Unseen item 0",
+      "Unseen item 100",
+      "Unseen item 1000",
+      "Unseen item 10000",
+      "Unseen item 10004",
+      "Unseen item 10008",
+      "Unseen item 10012",
+      "Unseen item 10016"
+    ]
+  },
+  "bounded_top8": {
+    "mean_ms": 1.5381388499918103,
+    "peak_temporary_bytes": 623,
+    "selected": [
+      "Unseen item 0",
+      "Unseen item 100",
+      "Unseen item 1000",
+      "Unseen item 10000",
+      "Unseen item 10004",
+      "Unseen item 10008",
+      "Unseen item 10012",
+      "Unseen item 10016"
+    ]
+  }
+}
