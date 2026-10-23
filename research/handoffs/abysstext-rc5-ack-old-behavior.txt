@@ -1,0 +1,15 @@
+test_same_metadata_in_place_ack_cannot_stall_next_packet (tests.test_live_incremental.IncrementalBridgeTests.test_same_metadata_in_place_ack_cannot_stall_next_packet) ... FAIL
+
+======================================================================
+FAIL: test_same_metadata_in_place_ack_cannot_stall_next_packet (tests.test_live_incremental.IncrementalBridgeTests.test_same_metadata_in_place_ack_cannot_stall_next_packet)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/barotrauma-text-extractor/tests/test_live_incremental.py", line 75, in test_same_metadata_in_place_ack_cannot_stall_next_packet
+    self.assertEqual(self.response()['sequence'],3)
+AssertionError: 2 != 3
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+EXPECTED old-cache failure reproduced. Current code passes this regression in the full suite.

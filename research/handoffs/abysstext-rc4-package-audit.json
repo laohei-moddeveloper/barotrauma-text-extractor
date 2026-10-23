@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0-rc4",
+  "source_commit": "b49d53519b170781982e9cc061e391bc2807ab4a",
+  "passed": true,
+  "zip_sha256": {
+    "AbyssText-0.2.0-rc4-source.zip": "1710f525c975f96d1a3a826ddabef66d4b56b86ee7b773bf19bcb40dc4d87de5",
+    "AbyssText-0.2.0-rc4-Windows-x64.zip": "f8548cf9a2c046b1c9ed209b3aad0f8e0352bf23b05970d0e425ab03268f7926",
+    "AbyssTextLive-0.2.0-rc4.zip": "378c3a61bde3da3087fa9bd17c7f7300c17d93f44de6bbd0b5d1b80238085f13"
+  },
+  "exe_sha256": "fa9bc00dccd0046106171f07c26773c6c943345ea4f7d8469f3aa7aebe6806ea",
+  "frozen_online": {
+    "ok": true,
+    "translation": "打开舱门",
+    "issues": [],
+    "elapsed_seconds": 1.0
+  },
+  "source_all_tracked_files_match_commit_with_git_attributes": true,
+  "plugin_clean_payload_matches_checkout": true,
+  "windows_exe_matches_tested_exe": true,
+  "game_tested": false
+}

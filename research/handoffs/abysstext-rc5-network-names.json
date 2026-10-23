@@ -1,0 +1,232 @@
+{
+  "real_network": true,
+  "game_tested": false,
+  "max_concurrency": 2,
+  "corpus": "eight owned fictional item names; raw translations, no semantic score; endpoint caching and run order can affect timings",
+  "results": [
+    {
+      "channel": "mymemory",
+      "mode": "single",
+      "seconds": 3.866,
+      "http_requests": 8,
+      "rows": [
+        {
+          "source": "Ceramic Diving Helmet",
+          "translation": "陶瓷潜水头盔",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Rescue Beacon",
+          "translation": "救援信标",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Abyssal Relay",
+          "translation": "深渊接力",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Plasma Vent",
+          "translation": "血浆通风口",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Emergency Repair Kit",
+          "translation": "应急维修包",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Portable Signal Repeater",
+          "translation": "便携式信号中继器",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Hydrothermal Pump",
+          "translation": "水热泵",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Armored Storage Case",
+          "translation": "装甲收纳箱",
+          "issues": [],
+          "error": null
+        }
+      ]
+    },
+    {
+      "channel": "mymemory",
+      "mode": "batched",
+      "seconds": 0.813,
+      "http_requests": 2,
+      "rows": [
+        {
+          "source": "Ceramic Diving Helmet",
+          "translation": "陶瓷潜水头盔",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Rescue Beacon",
+          "translation": "救援信标",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Abyssal Relay",
+          "translation": "深渊继电器",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Plasma Vent",
+          "translation": "血浆通风口",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Emergency Repair Kit",
+          "translation": "紧急维修包",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Portable Signal Repeater",
+          "translation": "便携式信号中继器",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Hydrothermal Pump",
+          "translation": "水热泵",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Armored Storage Case",
+          "translation": "铠装储物箱",
+          "issues": [],
+          "error": null
+        }
+      ]
+    },
+    {
+      "channel": "google",
+      "mode": "single",
+      "seconds": 3.888,
+      "http_requests": 8,
+      "rows": [
+        {
+          "source": "Ceramic Diving Helmet",
+          "translation": "陶瓷潜水头盔",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Rescue Beacon",
+          "translation": "救援灯塔",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Abyssal Relay",
+          "translation": "深渊接力",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Plasma Vent",
+          "translation": "等离子排气口",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Emergency Repair Kit",
+          "translation": "紧急维修包",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Portable Signal Repeater",
+          "translation": "便携式信号中继器",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Hydrothermal Pump",
+          "translation": "热液泵",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Armored Storage Case",
+          "translation": "装甲存储箱",
+          "issues": [],
+          "error": null
+        }
+      ]
+    },
+    {
+      "channel": "google",
+      "mode": "batched",
+      "seconds": 1.442,
+      "http_requests": 2,
+      "rows": [
+        {
+          "source": "Ceramic Diving Helmet",
+          "translation": "陶瓷潜水头盔",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Rescue Beacon",
+          "translation": "救援信标",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Abyssal Relay",
+          "translation": "深渊接力",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Plasma Vent",
+          "translation": "等离子排气口",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Emergency Repair Kit",
+          "translation": "紧急维修套件",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Portable Signal Repeater",
+          "translation": "便携式信号中继器",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Hydrothermal Pump",
+          "translation": "热液泵",
+          "issues": [],
+          "error": null
+        },
+        {
+          "source": "Armored Storage Case",
+          "translation": "装甲存储箱",
+          "issues": [],
+          "error": null
+        }
+      ]
+    }
+  ]
+}

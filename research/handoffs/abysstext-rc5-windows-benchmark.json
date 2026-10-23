@@ -1,0 +1,20 @@
+{
+  "synthetic": true,
+  "game_tested": false,
+  "real_network_requests": 0,
+  "baseline_commit": "f3163dbeb2818f4cd4ac9026b3211715cae661df",
+  "rc4_idle_50_seconds": 2.001757,
+  "rc4_idle_response_rewritten": true,
+  "rc4_full_response_bytes": 68154,
+  "rc4_repeated_template_http_calls": 100,
+  "current_idle_50_seconds": 0.000212,
+  "current_idle_response_rewritten": false,
+  "current_full_response_bytes": 68154,
+  "current_repeated_template_http_calls": 1,
+  "same_update_8_of_2000": true,
+  "rc4_update_response_bytes": 68202,
+  "current_delta_records": 8,
+  "current_delta_bytes": 682,
+  "current_delta_reduction_percent": 99.0,
+  "idle_publish_wall_time_reduction_percent": 99.99
+}

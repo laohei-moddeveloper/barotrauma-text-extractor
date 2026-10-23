@@ -1,0 +1,22 @@
+{
+  "before": {
+    "unrelatedReads": 3200,
+    "tooltipRichCalls": 500,
+    "numericSignatures": 32800,
+    "languageReloadCount": 40,
+    "retained": 800,
+    "elapsed_ms": 2094.3539,
+    "managed_allocated_bytes": 4901227000
+  },
+  "after": {
+    "unrelatedReads": 0,
+    "tooltipRichCalls": 1,
+    "numericSignatures": 200,
+    "languageReloadCount": 1,
+    "retained": 0,
+    "elapsed_ms": 202.9317,
+    "managed_allocated_bytes": 359140632
+  },
+  "game_tested": false,
+  "notes": "Synthetic MoonSharp trace; operation counts are not real-game FPS."
+}

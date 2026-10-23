@@ -1,0 +1,33 @@
+PASS server no-op
+PASS startup idle no draw patches
+PASS LuaCs canvas constructor is not the canvas instance
+PASS one click collects and deduplicates native text
+PASS native control and draw text replace without overlay
+PASS numeric values reuse a translation template
+PASS stale response rejected
+PASS same-revision completion acknowledged
+PASS stop restores native text and removes patches
+PASS missing hook APIs degrade to native commands
+PASS dropdown opened after response reuses native text translation
+PASS new dropdown text is collected and own button is excluded
+PASS loaded inventory buff and creature names are queued before display
+PASS rich markers retained in observed source
+PASS bilingual controls and non-English source pair
+PASS request write failure remains retryable
+PASS preloaded language catalog resumes across bounded requests without loss
+PASS one click stays active across a round and captures new mission text
+PASS Chinese excluded and rich tooltip prioritized during pending request
+PASS Han strings never enter initial or later capture queues
+PASS literal-only replies avoid global language reload and apply incrementally
+PASS visible tooltip promotes already submitted background text once
+PASS stop and restart accepts cached translations with unchanged revision
+PASS matching request with wrong session or target cannot acknowledge or apply
+PASS stopped generation cannot submit a later restart early
+PASS case insensitive source aliases still skip existing Chinese
+PASS delta acknowledgements preserve prior translations and reject sequence gaps
+PASS oversized delta is rejected before any application
+PASS removing and correcting a delta restores or updates original controls
+PASS continuous deltas cannot starve later controls
+PASS initial control traversal yields every 32 nodes
+PASS bounded queue selection retains visible priority
+32 isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.

@@ -1,0 +1,712 @@
+{
+  "revision": 2,
+  "language_pair": [
+    "English",
+    "Simplified Chinese"
+  ],
+  "reference": "Barotrauma vanilla English/SimplifiedChinese language keys; short terminology checked against existing original-game localization snapshot, not mod-specific invented terminology.",
+  "entries": [
+    {
+      "key": "entityname.coilgun",
+      "source": "Coilgun",
+      "target": "电磁枪"
+    },
+    {
+      "key": "entityname.railgun",
+      "source": "Railgun",
+      "target": "轨道炮"
+    },
+    {
+      "key": "entityname.doublecoilgun",
+      "source": "Double Coilgun",
+      "target": "双管电磁枪"
+    },
+    {
+      "key": "entityname.coilgunloader",
+      "source": "Coilgun Loader",
+      "target": "电磁枪装弹器"
+    },
+    {
+      "key": "entityname.railgunloader",
+      "source": "Railgun Loader",
+      "target": "轨道炮装弹器"
+    },
+    {
+      "key": "entityname.weldingtool",
+      "source": "Welding Tool",
+      "target": "焊接工具"
+    },
+    {
+      "key": "entityname.weldingfueltank",
+      "source": "Welding Fuel Tank",
+      "target": "焊接油箱"
+    },
+    {
+      "key": "entityname.oxygentank",
+      "source": "Oxygen Tank",
+      "target": "氧气罐"
+    },
+    {
+      "key": "entityname.oxygenitetank",
+      "source": "Oxygenite Tank",
+      "target": "液氧罐"
+    },
+    {
+      "key": "entityname.oxygenerator",
+      "source": "Oxygen Generator",
+      "target": "制氧机"
+    },
+    {
+      "key": "entityname.sonarmonitor",
+      "source": "Sonar Monitor",
+      "target": "声纳监控器"
+    },
+    {
+      "key": "entityname.sonartransducer",
+      "source": "Sonar Transducer",
+      "target": "声纳换能器"
+    },
+    {
+      "key": "entityname.handheldsonar",
+      "source": "Handheld Sonar",
+      "target": "手持声纳"
+    },
+    {
+      "key": "entityname.sonarbeacon",
+      "source": "Sonar Beacon",
+      "target": "声纳信标"
+    },
+    {
+      "key": "entityname.fuelrod",
+      "source": "Fuel Rod",
+      "target": "铀燃料棒"
+    },
+    {
+      "key": "entityname.fulguriumfuelrod",
+      "source": "Fulgurium Fuel Rod",
+      "target": "雷素燃料棒"
+    },
+    {
+      "key": "entityname.thoriumfuelrod",
+      "source": "Thorium Fuel Rod",
+      "target": "钍燃料棒"
+    },
+    {
+      "key": "entityname.fulguriumbatterycell",
+      "source": "Fulgurium Battery Cell",
+      "target": "雷素电池"
+    },
+    {
+      "key": "entityname.incendium",
+      "source": "Incendium Crystal",
+      "target": "燃素水晶"
+    },
+    {
+      "key": "entityname.fulgurium",
+      "source": "Fulgurium Chunk",
+      "target": "雷素块"
+    },
+    {
+      "key": "entityname.physicorium",
+      "source": "Physicorium Bar",
+      "target": "刚素棒"
+    },
+    {
+      "key": "entityname.calyxanide",
+      "source": "Calyxanide",
+      "target": "皮虫净"
+    },
+    {
+      "key": "entityname.antibleeding1",
+      "source": "Bandage",
+      "target": "绷带"
+    },
+    {
+      "key": "entityname.antibleeding2",
+      "source": "Plastiseal",
+      "target": "可塑人造皮肤"
+    },
+    {
+      "key": "entityname.antibleeding3",
+      "source": "Antibiotic Glue",
+      "target": "抗生素凝胶"
+    },
+    {
+      "key": "entityname.huskstinger",
+      "source": "Husk Stinger",
+      "target": "外壳寄生虫蛰针"
+    },
+    {
+      "key": "entityname.huskeggs",
+      "source": "Calyx Extract",
+      "target": "萼形体内转续拟寄生物提取物"
+    },
+    {
+      "key": "entityname.junctionbox",
+      "source": "Junction Box",
+      "target": "接线盒"
+    },
+    {
+      "key": "entityname.reactor1",
+      "source": "Nuclear Reactor",
+      "target": "核反应堆"
+    },
+    {
+      "key": "afflictionname.huskinfection",
+      "source": "Husk infection",
+      "target": "画皮寄生虫感染"
+    },
+    {
+      "key": "afflictionname.bleeding",
+      "source": "Bleeding",
+      "target": "出血"
+    },
+    {
+      "key": "afflictionname.burn",
+      "source": "Burn",
+      "target": "烧伤"
+    },
+    {
+      "key": "afflictionname.stun",
+      "source": "Stun",
+      "target": "眩晕"
+    },
+    {
+      "key": "afflictionname.oxygenlow",
+      "source": "Oxygen low",
+      "target": "缺氧"
+    },
+    {
+      "key": "afflictionname.pressure",
+      "source": "Barotrauma",
+      "target": "恶性水压创伤"
+    },
+    {
+      "key": "afflictionname.psychosis",
+      "source": "Psychosis",
+      "target": "精神病"
+    },
+    {
+      "key": "afflictionname.opiatewithdrawal",
+      "source": "Opiate withdrawal",
+      "target": "阿片类药物戒断反应"
+    },
+    {
+      "key": "afflictionname.opiateoverdose",
+      "source": "Opiate overdose",
+      "target": "阿片类药物中毒"
+    },
+    {
+      "key": "afflictionname.opiateaddiction",
+      "source": "Opiate addiction",
+      "target": "阿片类药物成瘾"
+    },
+    {
+      "key": "afflictionname.lacerations",
+      "source": "Lacerations",
+      "target": "撕裂伤"
+    },
+    {
+      "key": "afflictionname.radiationsickness",
+      "source": "Radiation sickness",
+      "target": "辐射病"
+    },
+    {
+      "key": "afflictionname.paralysis",
+      "source": "Paralysis",
+      "target": "麻痹"
+    },
+    {
+      "key": "afflictionname.acidburn",
+      "source": "Acid Burn",
+      "target": "酸性烧伤"
+    },
+    {
+      "key": "afflictionname.husksymbiosis",
+      "source": "Husk symbiosis",
+      "target": "画皮共生体"
+    },
+    {
+      "key": "afflictionname.jovianradiation",
+      "source": "Jovian radiation",
+      "target": "木星辐射"
+    },
+    {
+      "key": "jobname.captain",
+      "source": "Captain",
+      "target": "舰长"
+    },
+    {
+      "key": "jobname.engineer",
+      "source": "Engineer",
+      "target": "工程师"
+    },
+    {
+      "key": "jobname.mechanic",
+      "source": "Mechanic",
+      "target": "机修工"
+    },
+    {
+      "key": "jobname.securityofficer",
+      "source": "Security Officer",
+      "target": "安全官"
+    },
+    {
+      "key": "jobname.medicaldoctor",
+      "source": "Medical Doctor",
+      "target": "医生"
+    },
+    {
+      "key": "ballastflora",
+      "source": "Ballast Flora",
+      "target": "压载植物群"
+    },
+    {
+      "key": "character.crawler",
+      "source": "Crawler",
+      "target": "藻鬃爬行者"
+    },
+    {
+      "key": "character.husk",
+      "source": "Husk",
+      "target": "画皮"
+    },
+    {
+      "key": "character.mudraptor",
+      "source": "Mudraptor",
+      "target": "泥偶迅猛龙"
+    },
+    {
+      "key": "character.moloch",
+      "source": "Moloch",
+      "target": "摩螺克"
+    },
+    {
+      "key": "character.thalamus",
+      "source": "Thalamus",
+      "target": "丘脑"
+    },
+    {
+      "key": "character.spineling",
+      "source": "Spineling",
+      "target": "脊刺"
+    },
+    {
+      "key": "character.endworm",
+      "source": "Endworm",
+      "target": "末日蠕虫"
+    },
+    {
+      "key": "character.charybdis",
+      "source": "Charybdis",
+      "target": "噬海女妖-卡律布迪斯"
+    },
+    {
+      "key": "character.hammerhead",
+      "source": "Hammerhead",
+      "target": "锤头煞"
+    },
+    {
+      "key": "entityname.coilgunammobox",
+      "source": "Coilgun Ammunition Box",
+      "target": "电磁枪弹药匣"
+    },
+    {
+      "key": "entityname.supercapacitor",
+      "source": "Supercapacitor",
+      "target": "超级电容器"
+    },
+    {
+      "key": "entityname.antidama1",
+      "source": "Morphine",
+      "target": "吗啡"
+    },
+    {
+      "key": "entityname.antidama2",
+      "source": "Fentanyl",
+      "target": "芬太尼"
+    },
+    {
+      "key": "entityname.antinarc",
+      "source": "Naloxone",
+      "target": "纳洛酮"
+    },
+    {
+      "key": "entityname.antiparalysis",
+      "source": "Anaparalyzant",
+      "target": "麻痹治愈剂"
+    },
+    {
+      "key": "tutorial.oxygentitle",
+      "source": "Oxygen",
+      "target": "氧气"
+    },
+    {
+      "key": "entityname.fabricator",
+      "source": "Fabricator",
+      "target": "加工台",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.medicalfabricator",
+      "source": "Medical Fabricator",
+      "target": "医药加工台"
+    },
+    {
+      "key": "entityname.deconstructor",
+      "source": "Deconstructor",
+      "target": "解构仪",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.plasmacutter",
+      "source": "Plasma Cutter",
+      "target": "等离子切割器"
+    },
+    {
+      "key": "entityname.divingmask",
+      "source": "Diving Mask",
+      "target": "潜水面罩"
+    },
+    {
+      "key": "entityname.divingsuit",
+      "source": "Diving Suit",
+      "target": "潜水服"
+    },
+    {
+      "key": "entityname.abyssdivingsuit",
+      "source": "Abyss Diving Suit",
+      "target": "深渊潜水服"
+    },
+    {
+      "key": "entityname.combatdivingsuit",
+      "source": "Combat Diving Suit",
+      "target": "战斗潜水服"
+    },
+    {
+      "key": "entityname.brokendivingsuit",
+      "source": "Broken Diving Suit",
+      "target": "破损潜水服"
+    },
+    {
+      "key": "entityname.slipsuit",
+      "source": "Slipsuit",
+      "target": "带鳍潜水服",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.exosuit",
+      "source": "Exosuit",
+      "target": "外骨骼",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.pressurestabilizer",
+      "source": "Pressure Stabilizer",
+      "target": "压力稳定剂"
+    },
+    {
+      "key": "entityname.thermalgoggles",
+      "source": "Thermal Goggles",
+      "target": "热成像护目镜"
+    },
+    {
+      "key": "entityname.stungun",
+      "source": "Stun Gun",
+      "target": "电击枪"
+    },
+    {
+      "key": "entityname.stungundart",
+      "source": "Stun Gun Dart",
+      "target": "电击枪飞镖"
+    },
+    {
+      "key": "entityname.stungundartfulgurium",
+      "source": "Fulgurium Stun Gun Dart",
+      "target": "雷素电击枪飞镖"
+    },
+    {
+      "key": "entityname.stungrenade",
+      "source": "Stun Grenade",
+      "target": "震撼手榴弹"
+    },
+    {
+      "key": "entityname.stunbaton",
+      "source": "Stun Baton",
+      "target": "电击甩棍"
+    },
+    {
+      "key": "entityname.divingknife",
+      "source": "Diving Knife",
+      "target": "潜水刀"
+    },
+    {
+      "key": "entityname.divingknifehardened",
+      "source": "Hardened Diving Knife",
+      "target": "硬化潜水刀"
+    },
+    {
+      "key": "entityname.divingknifedementonite",
+      "source": "Dementonite Diving Knife",
+      "target": "摄魂潜水刀"
+    },
+    {
+      "key": "entityname.harpoongun",
+      "source": "Harpoon Gun",
+      "target": "鱼叉枪"
+    },
+    {
+      "key": "entityname.harpooncoilrifle",
+      "source": "Harpoon Coil-Rifle",
+      "target": "电磁鱼叉枪"
+    },
+    {
+      "key": "entityname.shotgunshell",
+      "source": "Shotgun Shell",
+      "target": "霰弹枪弹药"
+    },
+    {
+      "key": "entityname.shotgunshellblunt",
+      "source": "Shotgun Rubber Shell",
+      "target": "霰弹枪橡胶弹"
+    },
+    {
+      "key": "entityname.railgunharpoon",
+      "source": "Railgun Harpoon",
+      "target": "轨道炮鱼叉"
+    },
+    {
+      "key": "entityname.railguncanistershell",
+      "source": "Canister Railgun Shell",
+      "target": "轨道炮罐装弹"
+    },
+    {
+      "key": "entityname.railgunshell",
+      "source": "Railgun Shell",
+      "target": "轨道炮炮弹"
+    },
+    {
+      "key": "entityname.nuclearshell",
+      "source": "Nuclear Railgun Shell",
+      "target": "轨道炮核弹"
+    },
+    {
+      "key": "entityname.alienshell",
+      "source": "Physicorium Railgun Shell",
+      "target": "轨道炮刚素弹"
+    },
+    {
+      "key": "entityname.depthchargeshell",
+      "source": "Depth Charge Shell",
+      "target": "深水炸弹"
+    },
+    {
+      "key": "entityname.depthdecoyshell",
+      "source": "Depth Decoy Shell",
+      "target": "深潜诱饵"
+    },
+    {
+      "key": "entityname.depthchargeloader",
+      "source": "Depth Charge Loader",
+      "target": "深水炸弹装弹器"
+    },
+    {
+      "key": "entityname.pulselaserloader",
+      "source": "Pulse Laser Loader",
+      "target": "脉冲激光装弹器"
+    },
+    {
+      "key": "entityname.chaingunloader",
+      "source": "Chaingun Loader",
+      "target": "连射炮装弹器"
+    },
+    {
+      "key": "entityname.flakcannonloader",
+      "source": "Flak Cannon Loader",
+      "target": "破片加农炮装弹机"
+    },
+    {
+      "key": "entityname.batterycell",
+      "source": "Battery Cell",
+      "target": "电池"
+    },
+    {
+      "key": "entityname.battery",
+      "source": "Battery",
+      "target": "电池",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.relaycomponent",
+      "source": "Relay Component",
+      "target": "继电组件"
+    },
+    {
+      "key": "entityname.oxygendetector",
+      "source": "Oxygen Detector",
+      "target": "氧含量传感器"
+    },
+    {
+      "key": "entityname.antibiotics",
+      "source": "Broad-spectrum Antibiotics",
+      "target": "广谱抗生素"
+    },
+    {
+      "key": "entityname.antibloodloss1",
+      "source": "Saline",
+      "target": "生理盐水",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.antibloodloss2",
+      "source": "Blood Pack",
+      "target": "血袋"
+    },
+    {
+      "key": "entityname.antirad",
+      "source": "Antirad",
+      "target": "消辐灵",
+      "scope": "named"
+    },
+    {
+      "key": "entityname.liquidoxygenite",
+      "source": "Liquid Oxygenite",
+      "target": "液态氧矿"
+    },
+    {
+      "key": "entityname.huskeggsbasic",
+      "source": "Velonaceps calyx Eggs",
+      "target": "萼形体内转续拟寄生物卵"
+    },
+    {
+      "key": "entityname.alienblood",
+      "source": "Alien Blood",
+      "target": "异星血浆"
+    },
+    {
+      "key": "entityname.coilgunharpoonbox",
+      "source": "Coilgun Harpoon Box",
+      "target": "电磁枪鱼叉盒"
+    },
+    {
+      "key": "entityname.divingsuitlocker",
+      "source": "Diving Suit Locker",
+      "target": "潜水服锁柜"
+    },
+    {
+      "key": "entityname.divingsuitlocker2",
+      "source": "Large Diving Suit Locker",
+      "target": "大型潜水服柜"
+    },
+    {
+      "key": "entityname.oxygentankshelf",
+      "source": "Oxygen Tank Shelf",
+      "target": "氧气罐置物架"
+    },
+    {
+      "key": "entityname.railgunshellrack",
+      "source": "Railgun Shell Rack",
+      "target": "轨道炮炮弹架"
+    },
+    {
+      "key": "entityname.huskcaller",
+      "source": "Husk Caller",
+      "target": "画皮传呼器"
+    },
+    {
+      "key": "entityname.huskfigurine",
+      "source": "Husk Figurine",
+      "target": "画皮雕像"
+    },
+    {
+      "key": "entityname.shellshield",
+      "source": "Moloch Shell Fragment",
+      "target": "摩螺克甲壳碎片"
+    },
+    {
+      "key": "entityname.mudraptorshell",
+      "source": "Mudraptor Shell",
+      "target": "泥偶迅猛龙甲壳"
+    },
+    {
+      "key": "entityname.endwormshell",
+      "source": "Endworm Shell Fragment",
+      "target": "末日蠕虫甲壳片"
+    },
+    {
+      "key": "entityname.watchershell",
+      "source": "Watcher Shell Fragment",
+      "target": "观察者甲壳片"
+    },
+    {
+      "key": "entityname.thermalartifact",
+      "source": "Thermal Alien Artifact",
+      "target": "发热异星遗物"
+    },
+    {
+      "key": "entityname.oxygeniteshard",
+      "source": "Oxygenite Shard",
+      "target": "氧矿碎片"
+    },
+    {
+      "key": "afflictionname.bloodloss",
+      "source": "Blood loss",
+      "target": "失血",
+      "scope": "named"
+    },
+    {
+      "key": "afflictionname.morbusinepoisoning",
+      "source": "Morbusine poisoning",
+      "target": "窒死毒剂中毒"
+    },
+    {
+      "key": "afflictionname.sufforinpoisoning",
+      "source": "Sufforin poisoning",
+      "target": "升天毒剂中毒"
+    },
+    {
+      "key": "afflictionname.cyanidepoisoning",
+      "source": "Cyanide poisoning",
+      "target": "氰化物中毒"
+    },
+    {
+      "key": "afflictionname.deliriuminepoisoning",
+      "source": "Deliriumine poisoning",
+      "target": "谵妄毒剂中毒"
+    },
+    {
+      "key": "afflictionname.infection",
+      "source": "Infected wound",
+      "target": "已感染伤口",
+      "scope": "named"
+    },
+    {
+      "key": "afflictionname.huskinfectionresistance",
+      "source": "Husk infection resistance",
+      "target": "寄生抗性"
+    },
+    {
+      "key": "afflictionname.pressureresistance",
+      "source": "Pressure resistance",
+      "target": "压力适应",
+      "scope": "named"
+    },
+    {
+      "key": "afflictionname.pressurestabilized",
+      "source": "Pressure Stabilized",
+      "target": "压力稳定",
+      "scope": "named"
+    }
+  ],
+  "reference_hashes": {
+    "English/EnglishVanilla.xml": "0b4446db3185536816fdf0f356305652cc7481cdec71a7678b860a21fb358a59",
+    "English/EnglishVanillaEditorTexts.xml": "8901cc296ab9509548f3af4ea5b57b666ffbe7f4f60a7f08aa3fc1d93c3ff4e6",
+    "English/EnglishVanillaEndgame.xml": "2f4459b5bf648884e1699c4ea2e4bf4905efc9124f6ec9e18f4b31594c98f439",
+    "English/EnglishVanillaNew.xml": "1db396e5e12657bac5e5e74eed394e4c0960224cf1ae0697187e82a095ba9a3d",
+    "English/EnglishVanillaFactions.xml": "1e664fd2d4a46606b3a7377ee18d8823160b95e2fb14e007ce5147f609be75d4",
+    "SimplifiedChinese/SimplifiedChineseVanillaEndgame.xml": "f938135d6a93483d5acded1e859d3862aef828e51661672f1325d1401da9bc4a",
+    "SimplifiedChinese/SimplifiedChineseVanillaFactions.xml": "09aa6173618c968ed954a1cdd77572cef15ac66f2464c026bca51834feff0331",
+    "SimplifiedChinese/SimplifiedChineseVanilla.xml": "ff565d41c60800b6a06ebe690599706f25ce9eb25bb3ac68dbfc290e28ecdc0a",
+    "SimplifiedChinese/SimplifiedChineseVanillaEditorTexts.xml": "295d8e45b3cde881f2768cbc05c7afc9f9b73ec894fea57729a397810a5fe2ca"
+  }
+}

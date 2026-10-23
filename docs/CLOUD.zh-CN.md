@@ -1,7 +1,7 @@
-# 云环境登记
+# 云环境源码位置
 
-2026-10-21 已将 `laohei-moddeveloper/barotrauma-text-extractor` 加入原“潜渊症模组开发”环境的持久 repositories 配置，保留原有三个仓库，共四个。安装脚本、网络与其余设置保留，启动技能追加本项目说明，并已保存及发布环境快照。
+独立远端仓库：`laohei-moddeveloper/barotrauma-text-extractor`。
 
-目录 `/workspace/barotrauma-text-extractor`；默认分支 main。环境接口固定当前源码提交 `47541d2b2d776b881055c846028dc784292dca6b`，后续任务需要最新发布记录时应 fetch origin/main。
+本次开发 checkout 位于 **`/workspace/abysstext-upgrade`**，分支 `codex/abysstext-workbench`。所有源文件、示例、测试与交接文档都在此目录，云环境可直接读取。原 `/workspace/barotrauma-text-extractor` 是较早 checkout，不代表本次升级内容；重新进入环境时请 fetch 并 checkout 开发分支。
 
-环境编辑器确认 README 可读、Linux 25 项测试通过；这不代表 Windows/Steam 集成验证。本机 Windows 为 24 通过、1 权限原因跳过。GitHub 集成的 fetch_file 已成功读取 README，已安装仓库搜索可见新仓库及 pull/push 权限。
+这次只同步源码分支/PR，未替换 v0.1 的公开 Windows 包或 Steam 工坊内容。历史环境登记不意味着本机 Windows/真实游戏已通过验证。

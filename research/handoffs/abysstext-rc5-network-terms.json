@@ -1,0 +1,268 @@
+{
+  "real_network": true,
+  "game_tested": false,
+  "corpus": "six owned development regression sentences; lexical term check, not blind or full human quality scoring",
+  "results": [
+    {
+      "mode": "rc4-mymemory",
+      "sample": 0,
+      "source": "A Husk infection prevents the crew member from speaking.",
+      "expected_terms": [
+        "画皮寄生虫感染"
+      ],
+      "translation": "外壳感染使船员无法说话。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": false,
+      "seconds": 1.122,
+      "requests": 1
+    },
+    {
+      "mode": "rc4-mymemory",
+      "sample": 1,
+      "source": "Reload the Coilgun before the Mudraptor reaches the airlock.",
+      "expected_terms": [
+        "电磁枪",
+        "泥偶迅猛龙"
+      ],
+      "translation": "在Mudraptor到达气闸之前重新加载线圈枪。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": false,
+      "seconds": 1.216,
+      "requests": 1
+    },
+    {
+      "mode": "rc4-mymemory",
+      "sample": 2,
+      "source": "Keep a spare Welding Fuel Tank near the junction box.",
+      "expected_terms": [
+        "焊接油箱"
+      ],
+      "translation": "在接线盒附近放置一个备用焊接油箱。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 1.224,
+      "requests": 1
+    },
+    {
+      "mode": "rc4-mymemory",
+      "sample": 3,
+      "source": "The Railgun Loader needs power from a supercapacitor.",
+      "expected_terms": [
+        "轨道炮装弹器"
+      ],
+      "translation": "轨道炮装载机需要超级电容器供电。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": false,
+      "seconds": 1.711,
+      "requests": 1
+    },
+    {
+      "mode": "rc4-mymemory",
+      "sample": 4,
+      "source": "The Crawler is moving toward the Ballast Flora.",
+      "expected_terms": [
+        "藻鬃爬行者",
+        "压载植物群"
+      ],
+      "translation": "履带车正向压载植物区系移动。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": false,
+      "seconds": 1.491,
+      "requests": 1
+    },
+    {
+      "mode": "rc4-mymemory",
+      "sample": 5,
+      "source": "Treat opiate overdose with Naloxone.",
+      "expected_terms": [
+        "阿片类药物中毒",
+        "纳洛酮"
+      ],
+      "translation": "用纳洛酮治疗阿片类药物过量。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": false,
+      "seconds": 1.924,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-mymemory",
+      "sample": 0,
+      "source": "A Husk infection prevents the crew member from speaking.",
+      "expected_terms": [
+        "画皮寄生虫感染"
+      ],
+      "translation": "画皮寄生虫感染阻止船员说话。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 2.002,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-mymemory",
+      "sample": 1,
+      "source": "Reload the Coilgun before the Mudraptor reaches the airlock.",
+      "expected_terms": [
+        "电磁枪",
+        "泥偶迅猛龙"
+      ],
+      "translation": "请在泥偶迅猛龙到达气闸前装填电磁枪。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 1.446,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-mymemory",
+      "sample": 2,
+      "source": "Keep a spare Welding Fuel Tank near the junction box.",
+      "expected_terms": [
+        "焊接油箱"
+      ],
+      "translation": "请在接线盒附近备用焊接油箱。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 5.103,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-mymemory",
+      "sample": 3,
+      "source": "The Railgun Loader needs power from a supercapacitor.",
+      "expected_terms": [
+        "轨道炮装弹器"
+      ],
+      "translation": "轨道炮装弹器需要超级电容器供电。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.792,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-mymemory",
+      "sample": 4,
+      "source": "The Crawler is moving toward the Ballast Flora.",
+      "expected_terms": [
+        "藻鬃爬行者",
+        "压载植物群"
+      ],
+      "translation": "藻鬃爬行者正移向压载植物群。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 1.482,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-mymemory",
+      "sample": 5,
+      "source": "Treat opiate overdose with Naloxone.",
+      "expected_terms": [
+        "阿片类药物中毒",
+        "纳洛酮"
+      ],
+      "translation": "使用纳洛酮治疗阿片类药物中毒。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.0,
+      "requests": 0
+    },
+    {
+      "mode": "rc5-google",
+      "sample": 0,
+      "source": "A Husk infection prevents the crew member from speaking.",
+      "expected_terms": [
+        "画皮寄生虫感染"
+      ],
+      "translation": "画皮寄生虫感染阻止船员说话。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.81,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-google",
+      "sample": 1,
+      "source": "Reload the Coilgun before the Mudraptor reaches the airlock.",
+      "expected_terms": [
+        "电磁枪",
+        "泥偶迅猛龙"
+      ],
+      "translation": "在泥偶迅猛龙到达气闸室之前装填电磁枪。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.232,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-google",
+      "sample": 2,
+      "source": "Keep a spare Welding Fuel Tank near the junction box.",
+      "expected_terms": [
+        "焊接油箱"
+      ],
+      "translation": "在接线盒附近保留一个备用焊接油箱。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.204,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-google",
+      "sample": 3,
+      "source": "The Railgun Loader needs power from a supercapacitor.",
+      "expected_terms": [
+        "轨道炮装弹器"
+      ],
+      "translation": "轨道炮装弹器需要超级电容器提供电源。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.2,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-google",
+      "sample": 4,
+      "source": "The Crawler is moving toward the Ballast Flora.",
+      "expected_terms": [
+        "藻鬃爬行者",
+        "压载植物群"
+      ],
+      "translation": "藻鬃爬行者正在向压载植物群移动。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.206,
+      "requests": 1
+    },
+    {
+      "mode": "rc5-google",
+      "sample": 5,
+      "source": "Treat opiate overdose with Naloxone.",
+      "expected_terms": [
+        "阿片类药物中毒",
+        "纳洛酮"
+      ],
+      "translation": "使用纳洛酮治疗阿片类药物中毒。",
+      "issues": [],
+      "ok": true,
+      "expected_terms_present": true,
+      "seconds": 0.0,
+      "requests": 0
+    }
+  ]
+}

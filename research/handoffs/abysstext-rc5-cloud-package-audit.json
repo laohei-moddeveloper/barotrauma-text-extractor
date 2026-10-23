@@ -1,0 +1,11 @@
+{
+  "source_commit": "f416817cda9e3470893fb409286480218cbc80ef",
+  "downloaded_cloud_copy": true,
+  "outer_archive_sha256": "2b440f0a496cc59fbd2750adb5769bd06272204d6af6d35baeba81859061129f",
+  "all_three_zip_hashes_match_windows_receipt": true,
+  "all_source_files_match_windows_git_attributes": true,
+  "windows_exe_matches_tested_receipt": true,
+  "plugin_files_match_commit": true,
+  "exe_executed_on_linux": false,
+  "local_user_pc_changed": false
+}

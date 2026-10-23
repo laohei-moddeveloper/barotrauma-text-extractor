@@ -1,0 +1,368 @@
+{
+  "schema": 1,
+  "title": "老虎脱粒机汉化组与相关译者：本地只读导入路线",
+  "source": "https://steamcommunity.com/sharedfiles/filedetails/?id=2861028841",
+  "collection": "https://steamcommunity.com/sharedfiles/filedetails/?id=2850943086",
+  "notice": "译文版权属于原作者；程序仅从用户本地订阅文件生成带来源缓存，不附带或重新授权第三方译文。只导入与原模组英文键及原文一致、格式检查通过的条目。",
+  "rules": [
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2776026770"
+      ],
+      "files": [
+        "Common/MA(AOCS)/AOCSSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3190189044"
+      ],
+      "files": [
+        "Common/NTmods/NeurotraumaSC.xml",
+        "Common/NTmods/OverrideNeurotraumaSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2803887983"
+      ],
+      "files": [
+        "Common/NTmods/NeurotraumaSC.xml",
+        "Common/NTmods/OverrideNeurotraumaSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3286567141"
+      ],
+      "files": [
+        "Common/NTmods/Infections.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3169653196"
+      ],
+      "files": [
+        "Common/EA/AASC.xml",
+        "Common/EA/AATC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2764968387"
+      ],
+      "files": [
+        "Common/EA/EASC.xml",
+        "Common/EA/EATC.xml",
+        "Common/EA/OverrideEASC.xml",
+        "Common/EA/OverrideEATC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2547888957"
+      ],
+      "files": [
+        "Common/hazardreactorSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3460834908"
+      ],
+      "files": [
+        "Common/Lethal company gamemode/LCGSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3434408634"
+      ],
+      "files": [
+        "Common/Abnormalities/SimplifiedChinese.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3463737539"
+      ],
+      "files": [
+        "Common/Nosophobia/SimplifiedChinese.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "3343911734"
+      ],
+      "files": [
+        "Common/Smarter bot ai/GUIMiscSC.xml",
+        "Common/Smarter bot ai/OrdersSC.xml",
+        "Common/Smarter bot ai/TooltipsSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2954998725"
+      ],
+      "files": [
+        "Common/Hungry Europans/SimplifiedChinese.xml",
+        "Common/Hungry Europans/TraditionalChinese.xml",
+        "Common/Hungry Europans/SChinese_Tutorials.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2742414355"
+      ],
+      "files": [
+        "Inactive/AmmoModSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2613901395"
+      ],
+      "files": [
+        "Inactive/BackpacksSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "1946765892"
+      ],
+      "files": [
+        "Inactive/EkUtilitiesSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "1769403760"
+      ],
+      "files": [
+        "Inactive/EkArmorySC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2390126010"
+      ],
+      "files": [
+        "Inactive/EkGunnerySC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2390137099"
+      ],
+      "files": [
+        "Inactive/EkDockyardSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2804594280"
+      ],
+      "files": [
+        "Inactive/LOASSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2688101136"
+      ],
+      "files": [
+        "Inactive/NOATUNSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2852819097"
+      ],
+      "files": [
+        "Inactive/PMJ(Magenta Mix)SC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2835053375"
+      ],
+      "files": [
+        "Inactive/TheBackroom2.0SC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2799697127"
+      ],
+      "files": [
+        "Inactive/T.I.T.A.N.2.0SC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2816829606"
+      ],
+      "files": [
+        "Inactive/VanillaArsenalSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2645362256"
+      ],
+      "files": [
+        "Inactive/baroplusSC.xml"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2631438320"
+      ],
+      "files": [
+        "Inactive/NaniteIntegrationSC.xml"
+      ]
+    },
+    {
+      "provider": "2800873233",
+      "targets": [
+        "2803887983"
+      ]
+    },
+    {
+      "provider": "2804370172",
+      "targets": [
+        "2776026770"
+      ]
+    },
+    {
+      "provider": "2801386581",
+      "targets": [
+        "2742414355"
+      ]
+    },
+    {
+      "provider": "2805879592",
+      "targets": [
+        "2688101136"
+      ]
+    },
+    {
+      "provider": "2805809231",
+      "targets": [
+        "2799697127"
+      ]
+    },
+    {
+      "provider": "2804861671",
+      "targets": [
+        "2721301040"
+      ]
+    },
+    {
+      "provider": "2838151802",
+      "targets": [
+        "2613901395"
+      ]
+    },
+    {
+      "provider": "2839059182",
+      "targets": [
+        "2816829606"
+      ]
+    },
+    {
+      "provider": "2855722971",
+      "targets": [
+        "2852819097"
+      ]
+    },
+    {
+      "provider": "2859087590",
+      "targets": [
+        "2804594280"
+      ]
+    },
+    {
+      "provider": "2856700611",
+      "targets": [
+        "2764968387"
+      ]
+    },
+    {
+      "provider": "2862196475",
+      "targets": [
+        "2645362256"
+      ]
+    },
+    {
+      "provider": "2295165270",
+      "targets": [
+        "2295165270"
+      ]
+    },
+    {
+      "provider": "2523120046",
+      "targets": [
+        "2523120046"
+      ]
+    },
+    {
+      "provider": "2526236489",
+      "targets": [
+        "2526236489"
+      ]
+    },
+    {
+      "provider": "2848527408",
+      "targets": [
+        "2848527408"
+      ]
+    },
+    {
+      "provider": "2861028841",
+      "targets": [
+        "2954237072"
+      ],
+      "files": [
+        "Inactive/EkUtilitiesSC.xml",
+        "Inactive/EkArmorySC.xml",
+        "Inactive/EkGunnerySC.xml",
+        "Inactive/EkDockyardSC.xml"
+      ]
+    }
+  ],
+  "unresolved": [
+    "NT Cybernetics / NeuroEyes / Pharmacy / Surgery Plus / Thermal：需原扩展英文包核对",
+    "Aquatic Arsenal / More Unique Weapons / LFB：尚未确认原包",
+    "多人船员管理器 / Functional Necrosis / StorySC / NPCConversations：非普通双语语言表，未静态配对",
+    "NEEDS：原包标记 NotWorking，不自动导入",
+    "EA Fuel for the Fire / Immersive Ignitables：需对应英文文本包，不能互相冒用路由"
+  ]
+}

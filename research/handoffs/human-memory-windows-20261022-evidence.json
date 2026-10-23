@@ -1,0 +1,99 @@
+{
+  "run": "https://github.com/laohei-moddeveloper/barotrauma-text-extractor/actions/runs/39794249682",
+  "artifact_id": 12433101445,
+  "python": {
+    "total": 193,
+    "passed": 193,
+    "failed": 0,
+    "skipped": 0
+  },
+  "frozen": {
+    "protocol": 1,
+    "exe_sha256": "8a21394e2749f5e8a0c91530c6d4e1f50e062ce08fa9146b835d7daee9561067",
+    "game_tested": false,
+    "checks": [
+      {
+        "name": "read-only fixture scan",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "bundled companion integrity",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "existing companion refuses overwrite",
+        "exit_code": 1,
+        "passed": true
+      },
+      {
+        "name": "actual frozen human-memory import",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "actual frozen HTTPS translation",
+        "exit_code": 0,
+        "passed": true
+      },
+      {
+        "name": "online output refuses overwrite",
+        "exit_code": 2,
+        "passed": true
+      }
+    ],
+    "optional_checks": [
+      {
+        "name": "Google experimental frozen HTTPS",
+        "exit_code": 0,
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "packages": {
+    "version": "0.2.0-rc5",
+    "source_commit": "1c883ded93fe50daef659e335e778b587f7c147f",
+    "passed": true,
+    "zip_sha256": {
+      "AbyssText-0.2.0-rc5-source.zip": "4fe3db6faa0dbaa6116b157f5f87d337eb5c35cd88f3f3a64cfabd9490e8228b",
+      "AbyssText-0.2.0-rc5-Windows-x64.zip": "049890b4dd8aebb132df06753888fbd17b5726dfbc851a7359298e7d23f3c4a7",
+      "AbyssTextLive-0.2.0-rc5.zip": "883bc62c756ec7c0d185b4b838366bbcacea2db691291838562a351b6a166ea5"
+    },
+    "exe_sha256": "8a21394e2749f5e8a0c91530c6d4e1f50e062ce08fa9146b835d7daee9561067",
+    "frozen_online": {
+      "ok": true,
+      "translation": "打开舱门",
+      "issues": [],
+      "compound_check": {
+        "translation": "画皮泥偶迅猛龙",
+        "ok": true
+      },
+      "channel": "mymemory",
+      "elapsed_seconds": 0.984
+    },
+    "optional_frozen_checks": [
+      {
+        "name": "Google experimental frozen HTTPS",
+        "exit_code": 0,
+        "passed": true
+      }
+    ],
+    "google_online": {
+      "ok": true,
+      "translation": "打开舱口",
+      "issues": [],
+      "compound_check": {
+        "translation": "画皮泥偶迅猛龙",
+        "ok": true
+      },
+      "channel": "google",
+      "elapsed_seconds": 0.234
+    },
+    "source_all_tracked_files_match_commit_with_git_attributes": true,
+    "plugin_clean_payload_matches_checkout": true,
+    "windows_exe_matches_tested_exe": true,
+    "game_tested": false
+  }
+}

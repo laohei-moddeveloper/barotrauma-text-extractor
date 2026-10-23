@@ -1,0 +1,61 @@
+{
+  "real_network": true,
+  "game_tested": false,
+  "corpus": "three owned fictional creature names per free channel; raw results, not a semantic accuracy score",
+  "results": [
+    {
+      "channel": "mymemory",
+      "source": "huskAbyssWalker",
+      "translation": "画皮深渊漫步者",
+      "issues": [],
+      "origin": "联网翻译 + 潜渊症术语（未校对）",
+      "requests": 1,
+      "seconds": 0.958
+    },
+    {
+      "channel": "mymemory",
+      "source": "AbyssWalkerhusk",
+      "translation": "深渊行者画皮",
+      "issues": [],
+      "origin": "联网翻译 + 潜渊症术语（未校对）",
+      "requests": 1,
+      "seconds": 1.052
+    },
+    {
+      "channel": "mymemory",
+      "source": "huskAbyssWalkermudraptor",
+      "translation": "画皮深渊漫步者泥偶迅猛龙",
+      "issues": [],
+      "origin": "联网翻译 + 潜渊症术语（未校对）",
+      "requests": 1,
+      "seconds": 1.057
+    },
+    {
+      "channel": "google",
+      "source": "huskAbyssWalker",
+      "translation": "画皮深渊行者",
+      "issues": [],
+      "origin": "联网翻译 + 潜渊症术语（未校对）",
+      "requests": 1,
+      "seconds": 0.413
+    },
+    {
+      "channel": "google",
+      "source": "AbyssWalkerhusk",
+      "translation": "深渊行者画皮",
+      "issues": [],
+      "origin": "联网翻译 + 潜渊症术语（未校对）",
+      "requests": 1,
+      "seconds": 0.584
+    },
+    {
+      "channel": "google",
+      "source": "huskAbyssWalkermudraptor",
+      "translation": "画皮深渊行者泥偶迅猛龙",
+      "issues": [],
+      "origin": "联网翻译 + 潜渊症术语（未校对）",
+      "requests": 1,
+      "seconds": 0.939
+    }
+  ]
+}
