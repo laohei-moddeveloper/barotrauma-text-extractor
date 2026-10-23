@@ -7,13 +7,20 @@ local live = root .. "/Live/"
 local active, pending, dirty = false, false, false
 local nextPoll, nextSend, serial, nextSettings = 0, 0, 0, 0
 local requestId, revision = "", ""
+local nextRequestNotice=0
 local sessionId = ""
 local accepted, generation = false, 0
 local appliedSequence, nextPreload, lastQueueVisits = 0, 0, 0
-local controlScan, applyAgain = nil, false
-local observeBudget=128
+local controlScan = nil
+local dictionaryEpoch=0
+local controlSlots,freeSlots,controlCursor={}, {}, 1
+local lastControlVisits=0
+local patternBudget,patternChars=64,8192
+local pendingLanguage,nextLanguageRefresh,languagePendingAt,languageQuietAt=false,0,0,0
+local languageReloads=0
+local observeBudget=64
 local targetUses={}
-local ignored,ignoredRing,ignoredCursor={},{},1
+local ignoredCache
 local function NewBuckets()
     local result={}
     for priority=0,3 do result[priority]={items={},head=1,tail=0} end
@@ -24,7 +31,7 @@ local function Enqueue(identity,priority)
     local bucket=buckets[priority];bucket.tail=bucket.tail+1;bucket.items[bucket.tail]=identity
 end
 local languageRevision, hadLanguageKeys = "", false
-local applyQueue, applyIndex, responseRaw = {}, 1, ""
+local responseRaw = ""
 local translations, translatedValues, queued, sent, controls, originals = {}, {}, {}, {}, {}, {}
 local queuedCount, controlCount = 0, 0
 local queuedBytes, sentCount = 0, 0
@@ -32,7 +39,7 @@ local patchSignatures, installed = {}, false
 local InstallPatches
 local preload, preloadSteps = nil, 0
 local lastError, translatedCount, nextStatus = "", 0, 0
-local captureTime, captureBudget, captureAfter = 0, 100, {}
+local captureTime,captureBudget=0,32
 local uiLanguage, sourceLanguage, targetLanguage = "zh", "English", "Simplified Chinese"
 local button, languageFile
 local richString
@@ -114,13 +121,55 @@ local function Signature(text)
     end)
     return template, values
 end
+-- Fixed-size render caches. They retain strings/results, never GUI objects.
+local function Cache(limit,maxChars)
+    return {rows={},ring={},cursor=1,count=0,chars=0,limit=limit,maxChars=maxChars}
+end
+local numericCache,tooltipCache=Cache(512,262144),Cache(64,262144)
+ignoredCache=Cache(1024,131072)
+local function Forget(cache,key)
+    local previous=cache.rows[key]
+    if previous then
+        cache.chars=cache.chars-previous.cost;cache.count=cache.count-1
+        cache.rows[key]=nil;cache.ring[previous.slot]=nil
+    end
+end
+local function Remember(cache,key,value)
+    local cost=#key+(value.weight or 0)
+    Forget(cache,key)
+    if cost>cache.maxChars then return end
+    local function Remove(slot)
+        local previous=cache.ring[slot]
+        if previous then Forget(cache,previous) end
+    end
+    Remove(cache.cursor)
+    while cache.chars+cost>cache.maxChars do
+        cache.cursor=cache.cursor%cache.limit+1;Remove(cache.cursor)
+    end
+    value.cost=cost;value.slot=cache.cursor;cache.rows[key]=value;cache.ring[cache.cursor]=key
+    cache.chars=cache.chars+cost;cache.count=cache.count+1
+    cache.cursor=cache.cursor%cache.limit+1
+end
 local function Translated(text)
     if translations[text] then return translations[text] end
-    if not text:find("%d") then return nil end
-    local template, values = Signature(text)
-    local translated = translations[template]
-    if not translated then return nil end
-    return translated:gsub("%[abyss_value_(%d+)%]",function(index) return values[tonumber(index)] or "" end)
+    if translatedValues[text] or type(text)~="string" or #text>20000 then return nil end
+    local row=numericCache.rows[text]
+    if not row then
+        if patternBudget<=0 or #text>patternChars then return nil,true end
+        patternBudget=patternBudget-1;patternChars=patternChars-#text
+        local template,values=text,{}
+        if text:find("%d") then template,values=Signature(text) end
+        row={template=template,values=values,epoch=-1}
+    end
+    if row.epoch~=dictionaryEpoch then
+        local target=translations[row.template]
+        row.result=target and target:gsub("%[abyss_value_(%d+)%]",function(index) return row.values[tonumber(index)] or "" end) or false
+        row.epoch=dictionaryEpoch
+        row.weight=#row.template+(row.result and #row.result or 0)
+        for _,value in ipairs(row.values) do row.weight=row.weight+#value end
+        Remember(numericCache,text,row)
+    end
+    return row.result or nil
 end
 local function PutTranslation(source,target)
     local old=translations[source]
@@ -130,6 +179,7 @@ local function PutTranslation(source,target)
         if targetUses[old]<=0 then targetUses[old]=nil;translatedValues[old]=nil end
         translatedCount=translatedCount-1
     end
+    dictionaryEpoch=dictionaryEpoch+1
     translations[source]=target
     if target~=nil then
         targetUses[target]=(targetUses[target] or 0)+1;translatedValues[target]=true
@@ -152,26 +202,30 @@ local function Observe(text, key, priority, context, modId)
     if not active or type(text) ~= "string" or #text < 2 or #text > 20000 then return end
     if text:find("译潜 · ",1,true)==1 or text:find("AbyssText · ",1,true)==1 then return end
     priority=priority or (key and key~="" and 3 or 1)
-    if translatedValues[text] or translations[text] or ignored[text] then return end
-    local rawIdentity=(key or "").."\0"..text
+    if translatedValues[text] or translations[text] or ignoredCache.rows[text] then return end
+    local rawIdentity=key and key~="" and (key.."\0"..text) or text
     if queued[rawIdentity] then
         if modId and modId~="" and not queued[rawIdentity].mod_id then queued[rawIdentity].mod_id=modId end
         if priority<queued[rawIdentity].priority then queued[rawIdentity].priority=priority;Enqueue(rawIdentity,priority) end
         return
     end
     if sent[rawIdentity]~=nil and (priority~=0 or sent[rawIdentity]==0) then return end
+    if observeBudget<=0 then return end
+    observeBudget=observeBudget-1
     -- MoonSharp uses .NET strings, not UTF-8 byte strings. Match Han directly.
     if sourceLanguage=="English" and (targetLanguage=="Simplified Chinese" or targetLanguage=="Traditional Chinese") and text:find("[㐀-䶿一-鿿]") then
-        local previous=ignoredRing[ignoredCursor];if previous then ignored[previous]=nil end
-        ignoredRing[ignoredCursor]=text;ignored[text]=true;ignoredCursor=ignoredCursor%256+1
+        Remember(ignoredCache,text,{})
         return
     end
     if not (text:match("%a") or text:match("[\128-\255]")) or translatedValues[text] or translations[text] then return end
-    if observeBudget<=0 then return end
-    observeBudget=observeBudget-1
-    if key == nil or key == "" then text = Signature(text) end
+    if (key==nil or key=="") and #text<=2048 then
+        local memo=numericCache.rows[text]
+        if not memo then Translated(text);memo=numericCache.rows[text] end
+        if not memo then return end -- exhausted this frame's normalization budget
+        text=memo.template
+    end
     if translatedValues[text] or translations[text] then return end
-    local identity = (key or "") .. "\0" .. text
+    local identity=key and key~="" and (key.."\0"..text) or text
     if queued[identity] then
         if priority<queued[identity].priority then queued[identity].priority=priority;Enqueue(identity,priority) end
         return
@@ -201,6 +255,17 @@ local function RefreshLanguage(unloadOnly)
     languageFile.UnloadFile()
     if not unloadOnly then languageFile.LoadFile() end
     TextManager.IncrementLanguageVersion()
+    pendingLanguage=false
+    if not unloadOnly then languageReloads=languageReloads+1;nextLanguageRefresh=Timer.GetTime()+5 end
+end
+local function QueueLanguageRefresh(now)
+    if not pendingLanguage then languagePendingAt=now end
+    pendingLanguage=true;languageQuietAt=now+0.5
+end
+local function FlushLanguageRefresh(now)
+    if pendingLanguage and now>=nextLanguageRefresh and (now>=languageQuietAt or now-languagePendingAt>=5) then
+        RefreshLanguage(false)
+    end
 end
 local function CollectLanguageKeys()
     local function Budget()
@@ -288,10 +353,12 @@ local function CollectPrefabs()
 end
 local function ReportStatus()
     pcall(function()
-        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="owner-metadata-fix-20261023",active=active,preloading=preload~=nil,
+        File.Write(live.."status.json",json.serialize({protocol=1,runtime_build="bounded-render-fix-20261023",active=active,preloading=preload~=nil,
             session_id=sessionId,source_language=sourceLanguage,target_language=targetLanguage,applied_sequence=appliedSequence,last_queue_visits=lastQueueVisits,
             queued_records=queuedCount,submitted_records=sentCount,translated_records=translatedCount,
-            tracked_controls=controlCount,last_error=lastError}))
+            tracked_controls=controlCount,last_control_visits=lastControlVisits,
+            numeric_cache_entries=numericCache.count,tooltip_cache_entries=tooltipCache.count,
+            render_cache_chars=numericCache.chars+tooltipCache.chars+ignoredCache.chars,language_reloads=languageReloads,last_error=lastError}))
     end)
 end
 local function ResumePreload()
@@ -301,59 +368,78 @@ local function ResumePreload()
     elseif coroutine.status(preload)=="dead" then preload=nil end
 end
 local ApplyControl
+local function DropControl(component,row)
+    local old=originals[component]
+    if old then pcall(function() if TextValue(component.Text)==old.display then component.Text=old.value end end) end
+    originals[component]=nil;controls[component]=nil
+    controlSlots[row.slot]=false;freeSlots[#freeSlots+1]=row.slot
+    controlCount=controlCount-1
+end
 local function CollectControls(component)
-    if not active or component == nil then return end
-    if captureBudget<=0 or (captureAfter[component] or 0)>captureTime then return end
-    local ok, isText = pcall(LuaUserData.IsTargetType, component, "Barotrauma.GUITextBlock")
-    if ok and isText then
-        captureBudget=captureBudget-1
-        if controls[component]~=nil or controlCount<3000 then captureAfter[component]=captureTime+0.5 end
-        if controls[component] == nil and controlCount < 3000 then controls[component] = true; controlCount = controlCount + 1 end
-        local read, text = pcall(function() return TextValue(component.Text) end)
-        if read then Observe(text,nil,0) end
-        if ApplyControl then ApplyControl(component) end
+    if not active or component==nil then return end
+    local row=controls[component]
+    if row then row.seen=captureTime end
+    if captureBudget<=0 or (row and row.after>captureTime) then return end
+    local ok,isText=true,row~=nil
+    if not row then ok,isText=pcall(LuaUserData.IsTargetType,component,"Barotrauma.GUITextBlock") end
+    if not ok or not isText then return end
+    captureBudget=captureBudget-1
+    -- At capacity the font hook still translates rendering. Never create an
+    -- untracked restoration entry, which used to grow past the control cap.
+    if not row then
+        if controlCount>=3000 then return end
+        local slot=table.remove(freeSlots) or (#controlSlots+1)
+        row={slot=slot,seen=captureTime,after=0,epoch=-1}
+        controls[component]=row;controlSlots[slot]=component;controlCount=controlCount+1
     end
+    row.after=captureTime+0.5
+    local read,text=pcall(function() return TextValue(component.Text) end)
+    if read then Observe(text,nil,0);ApplyControl(component,text) end
 end
-ApplyControl = function(component)
-        local ok = pcall(function()
-            local current = TextValue(component.Text)
-            local old = originals[component]
-            if old and current ~= old.display then originals[component] = nil;old=nil end
-            if old then
-                local desired=Translated(TextValue(old.value))
-                if desired==old.display then return end
-                component.Text=old.value;originals[component]=nil;current=TextValue(component.Text)
-            end
-            local target = Translated(current)
-            -- Dynamic getters retain control over their value; the draw hook can
-            -- replace plain strings instead of destroying the getter delegate.
-            if target and component.TextGetter == nil then
-                local original = component.Text
-                if target:find("‖",1,true) then
-                    if richString == nil then Warn("rich", Ui("富文本构造接口不可用，保留该控件原文。", "Rich text constructor unavailable; preserving this control.")) return end
-                    component.Text = richString.Rich(target)
-                else
-                    component.Text = target
-                end
-                originals[component] = {value=original, display=TextValue(component.Text)}
-            end
-        end)
-        if not ok then controls[component] = nil; originals[component] = nil end
-end
-local function ApplyControls()
-    if applyIndex<=#applyQueue then applyAgain=true;return end
-    applyQueue,applyIndex={},1
-    for component in pairs(controls) do applyQueue[#applyQueue+1]=component end
+ApplyControl = function(component,current)
+    local row=controls[component]
+    if not row then return end
+    local ok=pcall(function()
+        current=current or TextValue(component.Text)
+        local old=originals[component]
+        if old and current~=old.display then originals[component]=nil;old=nil end
+        local source=old and TextValue(old.value) or current
+        local target,deferred=Translated(source)
+        if deferred then row.epoch=-1;return end
+        row.source=source;row.epoch=dictionaryEpoch
+        if old and target==old.display then return end
+        if old then component.Text=old.value;originals[component]=nil end
+        if target and component.TextGetter==nil then
+            local original=old and old.value or component.Text
+            if target:find("‖",1,true) then
+                if richString==nil then return end
+                component.Text=richString.Rich(target)
+            else component.Text=target end
+            originals[component]={value=original,display=TextValue(component.Text)}
+        end
+    end)
+    if not ok then DropControl(component,row) end
 end
 local function ApplyControlBatch()
-    for i=1,32 do
-        local component=applyQueue[applyIndex]
-        if component==nil then
-            applyQueue={};applyIndex=1
-            if applyAgain then applyAgain=false;ApplyControls() end
-            return
+    lastControlVisits=0
+    local size=#controlSlots
+    for i=1,math.min(16,size) do
+        if controlCursor>size then controlCursor=1 end
+        local component=controlSlots[controlCursor];controlCursor=controlCursor+1
+        lastControlVisits=lastControlVisits+1
+        local row=component and controls[component]
+        if row then
+            if captureTime-row.seen>10 then DropControl(component,row)
+            elseif row.epoch~=dictionaryEpoch then
+                local desired,deferred
+                if row.source then desired,deferred=Translated(row.source) end
+                local old=originals[component]
+                if not deferred then
+                    if desired~=(old and old.display or nil) then ApplyControl(component)
+                    else row.epoch=dictionaryEpoch end
+                end
+            end
         end
-        ApplyControl(component);applyIndex=applyIndex+1
     end
 end
 local function SendRequest()
@@ -397,7 +483,10 @@ local function SendRequest()
         queued[identity]=nil;queuedCount=queuedCount-1
     end
     dirty,pending,accepted=queuedCount>0,true,false
-    print("[AbyssTextLive] " .. Ui("已请求试译；请保持桌面工作台运行。条数：", "Translation requested. Keep the desktop workbench running. Records: ") .. #records)
+    if Timer.GetTime()>=nextRequestNotice then
+        nextRequestNotice=Timer.GetTime()+5
+        print("[AbyssTextLive] " .. Ui("已请求试译；请保持桌面工作台运行。条数：", "Translation requested. Keep the desktop workbench running. Records: ") .. #records)
+    end
 end
 local function Begin()
     if active then return end
@@ -410,7 +499,8 @@ local function Begin()
     local ownGeneration=generation
     accepted=false
     appliedSequence,nextPreload=0,0
-    nextPoll,nextSend=0,0
+    nextPoll,nextSend,nextRequestNotice=0,0,0
+    patternBudget,patternChars=64,8192
     responseRaw,revision="",""
     sessionId=tostring(Timer.GetTime())..".session."..tostring(generation).."."..tostring(serial+1)
     if not installed then InstallPatches() end
@@ -448,15 +538,19 @@ local function Stop()
     active, pending, dirty = false, false, false
     generation=generation+1
     accepted=false
-    preload=nil;controlScan=nil;appliedSequence=0;applyAgain=false;buckets=NewBuckets()
-    applyQueue,applyIndex,responseRaw={},1,""
+    preload=nil;controlScan=nil;appliedSequence=0;buckets=NewBuckets()
+    responseRaw=""
+    controlSlots,freeSlots,controlCursor={}, {}, 1
+    numericCache,tooltipCache=Cache(512,262144),Cache(64,262144)
+    dictionaryEpoch=dictionaryEpoch+1
+    pendingLanguage,nextLanguageRefresh,languagePendingAt,languageQuietAt=false,0,0,0
+    languageReloads=0
     languageRevision,hadLanguageKeys,revision="",false,""
     for component, old in pairs(originals) do
         pcall(function() if TextValue(component.Text) == old.display then component.Text = old.value end end)
     end
     originals, translations, translatedValues, queued, sent, controls = {}, {}, {}, {}, {}, {}
-    targetUses={};ignored,ignoredRing,ignoredCursor={},{},1;observeBudget=128
-    captureAfter={}
+    targetUses={};ignoredCache=Cache(1024,131072);observeBudget=64
     queuedCount, controlCount = 0, 0
     translatedCount=0
     queuedBytes, sentCount = 0, 0
@@ -477,6 +571,7 @@ local function DrawText(_, parameters)
     if not active then return end
     local text = parameters["text"]
     if type(text) ~= "string" then return end
+    if translatedValues[text] or ignoredCache.rows[text] then return end
     local translated = Translated(text)
     if translated then parameters["text"] = translated else Observe(text,nil,0) end
 end
@@ -512,6 +607,12 @@ InstallPatches = function()
             function(_,parameters)
                 if not active or richString==nil then return end
                 local original=TextValue(parameters["toolTip"])
+                if #original>20000 then return end
+                local cached=tooltipCache.rows[original]
+                if cached and cached.epoch==dictionaryEpoch and (cached.target or captureTime<cached.retryAt) then
+                    if cached.target then parameters["toolTip"]=cached.target end
+                    return
+                end
                 local function Segment(text)
                     local leading,body,trailing=text:match("^(%s*)(.-)(%s*)$")
                     if body=="" then return text end
@@ -528,7 +629,9 @@ InstallPatches = function()
                     end
                     return table.concat(parts)
                 end)
-                if target~=original then parameters["toolTip"]=richString.Rich(target) end
+                local rendered=target~=original and richString.Rich(target) or false
+                Remember(tooltipCache,original,{epoch=dictionaryEpoch,target=rendered,retryAt=captureTime+0.5,weight=#target})
+                if rendered then parameters["toolTip"]=rendered end
             end,Hook.HookMethodType.Before)
     end)
     if not tooltipOk then Warn("tooltip","Tooltip capture unavailable: "..tostring(tooltipErr)) end
@@ -551,8 +654,9 @@ end, 1000)
 Hook.Add("think", "abysstext.live", function()
     if button ~= nil then pcall(function() button.AddToGUIUpdateList() end) end
     local now = Timer.GetTime()
-    captureTime,captureBudget=now,100
-    observeBudget=128
+    captureTime,captureBudget=now,32
+    patternBudget,patternChars=64,8192
+    observeBudget=64
     if now>=nextStatus then nextStatus=now+2;ReportStatus() end
     if not active then
         if now >= nextSettings then nextSettings=now+2; pcall(ReadSettings) end
@@ -595,7 +699,7 @@ Hook.Add("think", "abysstext.live", function()
                         if count>8 then error("Translation delta exceeds eight records") end
                     end
                     if response.revision ~= revision then
-                        if response.delta and response.reset then translations,translatedValues,targetUses={},{},{};translatedCount=0 end
+                        if response.delta and response.reset then translations,translatedValues,targetUses={},{},{};translatedCount=0;dictionaryEpoch=dictionaryEpoch+1 end
                         for _,source in ipairs(response.removed or {}) do
                             PutTranslation(source,nil)
                         end
@@ -603,13 +707,13 @@ Hook.Add("think", "abysstext.live", function()
                             PutTranslation(source,target)
                         end
                         if response.language_revision==nil then
-                            RefreshLanguage(false) -- Compatibility with older workbenches.
+                            if now>=nextLanguageRefresh then RefreshLanguage(false) else QueueLanguageRefresh(now) end -- Legacy first load remains immediate.
                         elseif response.language_revision~=languageRevision then
                             local hasKeys=(response.keys or 0)>0
-                            if hasKeys or hadLanguageKeys then RefreshLanguage(false) end
+                            if hasKeys or hadLanguageKeys then QueueLanguageRefresh(now) end
                             hadLanguageKeys=hasKeys;languageRevision=response.language_revision
                         end
-                        ApplyControls()
+
                     end
                     revision=response.revision;responseRaw=raw
                     -- Receiving an older translation does not acknowledge that
@@ -623,6 +727,8 @@ Hook.Add("think", "abysstext.live", function()
         -- The desktop writes atomically, but a sharing violation can still be transient.
         if not ok then Warn("poll", Ui("桥接刷新暂不可用：", "Bridge refresh temporarily unavailable: ") .. tostring(err)) end
     end
+    local refreshed,refreshError=pcall(FlushLanguageRefresh,now)
+    if not refreshed then Warn("language-refresh",tostring(refreshError)) end
     ApplyControlBatch()
     if now >= nextSend then
         nextSend = now + 0.25

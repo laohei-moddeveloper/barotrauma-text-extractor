@@ -1,5 +1,63 @@
 using MoonSharp.Interpreter;
 
+if (args.Length==4 && args[0]=="--benchmark")
+{
+    string fixturePath=Path.Combine(AppContext.BaseDirectory,"fixture.lua");
+    Dictionary<string,object> Measure(string modulePath)
+    {
+        string moduleText=File.ReadAllText(modulePath).Replace("local function Signature(text)","local function Signature(text) signatureCalls=(signatureCalls or 0)+1");
+        var script=new Script(CoreModules.Preset_Complete);script.Options.DebugPrint=_=>{};
+        script.DoString(File.ReadAllText(fixturePath)+"\n"+"""
+reads,richCalls,signatureCalls=0,0,0
+LuaUserData.CreateStatic=function() return {Rich=function(value) richCalls=richCalls+1;return value end} end
+GUI.Canvas.Children={}
+for i=1,800 do
+ GUI.Canvas.Children[i]=setmetatable({isControl=true,Children={}},{__index=function(_,key)
+  if key=='Text' then reads=reads+1;return 'Static untouched label' end
+ end})
+end
+""");
+        script.Call(script.LoadString(moduleText),DynValue.NewString("/LocalMods/AbyssTextLive"));
+        script.DoString("FlushTimers();commands.abyss_translate();FlushTimers();for i=1,40 do Tick(0.01) end;request=RequestData();reads=0;richCalls=0;signatureCalls=0");
+        long allocatedBefore=GC.GetAllocatedBytesForCurrentThread();var watch=System.Diagnostics.Stopwatch.StartNew();
+        script.DoString("""
+for seq=1,100 do Delta(request,seq,{['Unrelated label']='无关 '..seq});Tick(0.25) end
+unrelatedReads=reads
+Delta(request,101,{['Large tooltip paragraph']='长提示文本'});Tick(0.25)
+local body=('Large tooltip paragraph\n'):rep(200)
+for i=1,500 do patches['abysstext.tooltip'](nil,{toolTip=body}) end
+tooltipRichCalls=richCalls
+signatureCalls=0
+for frame=1,100 do
+ Tick(0.01)
+ for i=1,200 do patches['abysstext.draw.1'](nil,{text='Pressure reading '..tostring(i)}) end
+end
+numericSignatures=signatureCalls
+local before=versions
+for seq=102,141 do
+ disk[root..'/Live/response.json']=json.serialize({protocol=1,request_id=request.request_id,
+  session_id=request.session_id,source_language=request.source_language,target_language=request.target_language,
+  delta=true,sequence=seq,base_sequence=seq-1,revision=tostring(seq),
+  language_revision='keyed-'..seq,keys=seq,translations={Tool='工具 '..seq},removed={}})
+ Tick(0.25)
+end
+languageReloadCount=versions-before
+Tick(12);for i=1,220 do Tick(0.01) end
+retained=json.parse(disk[root..'/Live/status.json']).tracked_controls
+""");
+        watch.Stop();
+        var result=new Dictionary<string,object>();
+        foreach(string key in new[]{"unrelatedReads","tooltipRichCalls","numericSignatures","languageReloadCount","retained"}) result[key]=script.Globals.Get(key).Number;
+        result["elapsed_ms"]=watch.Elapsed.TotalMilliseconds;result["managed_allocated_bytes"]=GC.GetAllocatedBytesForCurrentThread()-allocatedBefore;
+        return result;
+    }
+    var before=Measure(args[1]);var after=Measure(args[2]);
+    if ((double)after["unrelatedReads"]!=0 || (double)after["tooltipRichCalls"]!=1 || (double)after["retained"]!=0 ||
+        (double)after["numericSignatures"]>=(double)before["numericSignatures"] || (double)after["languageReloadCount"]>3)
+        throw new Exception("Bounded-render pressure benchmark failed");
+    string report=System.Text.Json.JsonSerializer.Serialize(new {before,after,game_tested=false,notes="Synthetic MoonSharp trace; operation counts are not real-game FPS."},new System.Text.Json.JsonSerializerOptions{WriteIndented=true});
+    File.WriteAllText(args[3],report+"\n");Console.WriteLine(report);return;
+}
 if (args.Length != 1) throw new Exception("Pass live-mod/AbyssTextLive/Lua/Autorun/abysstext.lua");
 string module=File.ReadAllText(args[0]);
 string fixture=File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"fixture.lua"));
@@ -353,5 +411,99 @@ for _,r in ipairs(RequestData().records) do
  if r.text=='Open hatch' then assert(r.mod_id=='');found=true end
 end
 assert(found)
+""");
+Check("unrelated deltas do not reread every tracked control", """
+reads=0;GUI.Canvas.Children={}
+for i=1,800 do
+ GUI.Canvas.Children[i]=setmetatable({isControl=true,Children={}},{__index=function(_,key)
+  if key=='Text' then reads=reads+1;return 'Static untouched label' end
+ end})
+end
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers()
+for i=1,40 do Tick(0.01) end
+local before=reads;local request=RequestData()
+for seq=1,20 do Delta(request,seq,{['Unrelated label']='无关 '..seq});Tick(0.25) end
+assert(reads==before,'unrelated replies reread controls: '..tostring(reads-before))
+local status=json.parse(disk[root..'/Live/status.json']);assert(status.last_control_visits<=16)
+""");
+Check("repeated large translated tooltip reuses rich object", """
+richCalls=0
+LuaUserData.CreateStatic=function() return {Rich=function(value) richCalls=richCalls+1;return value end} end
+""", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+Delta(request,1,{['Large tooltip paragraph']='长提示文本'});Tick(0.25)
+local body=('Large tooltip paragraph\n'):rep(200)
+for frame=1,100 do
+ local p={toolTip=body};patches['abysstext.tooltip'](nil,p)
+ assert(p.toolTip:find('长提示文本',1,true));Tick(0.01)
+end
+assert(richCalls==1,'reconstructed unchanged tooltip '..tostring(richCalls)..' times')
+Delta(request,2,{['Large tooltip paragraph']='更新后的文本'});Tick(0.25)
+local p={toolTip=body};patches['abysstext.tooltip'](nil,p)
+assert(p.toolTip:find('更新后的文本',1,true) and richCalls==2)
+""");
+Check("control cap includes restoration and stale pages are reclaimed", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+Delta(request,1,{['Overflow label']='已翻译'});Tick(0.25)
+local all={}
+for frame=1,110 do
+ Tick(0.01)
+ for i=1,32 do
+  local c={isControl=true,Text='Overflow label',Children={}};all[#all+1]=c
+  patches['abysstext.controls'](nil,{component=c})
+ end
+end
+Tick(2)
+local status=json.parse(disk[root..'/Live/status.json']);assert(status.tracked_controls<=3000)
+local mutated=0;for _,c in ipairs(all) do if c.Text=='已翻译' then mutated=mutated+1 end end
+assert(mutated<=3000,'untracked restoration entries exceeded cap')
+Tick(11);for i=1,220 do Tick(0.01) end
+status=json.parse(disk[root..'/Live/status.json']);assert(status.tracked_controls==0)
+local fresh={isControl=true,Text='Overflow label',Children={}}
+patches['abysstext.controls'](nil,{component=fresh});assert(fresh.Text=='已翻译')
+commands.abyss_stop();assert(fresh.Text=='Overflow label')
+""");
+Check("render caches stay bounded under thousands of numeric labels", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData()
+Delta(request,1,{['Oxygen: [abyss_value_1]%']='氧气：[abyss_value_1]%'});Tick(0.25)
+local p={text='Oxygen: 80%'};patches['abysstext.draw.1'](nil,p);assert(p.text=='氧气：80%')
+for frame=1,40 do
+ Tick(0.01)
+ for i=1,200 do patches['abysstext.draw.1'](nil,{text='Dynamic '..tostring(frame*200+i)}) end
+end
+Tick(2)
+local status=json.parse(disk[root..'/Live/status.json'])
+assert(status.numeric_cache_entries<=512 and status.tooltip_cache_entries<=64 and status.render_cache_chars<=655360)
+""");
+Check("continuous keyed responses coalesce reloads without starving final flush", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local request=RequestData();local before=versions
+for seq=1,30 do
+ disk[root..'/Live/response.json']=json.serialize({protocol=1,request_id=request.request_id,
+  session_id=request.session_id,source_language=request.source_language,target_language=request.target_language,
+  delta=true,sequence=seq,base_sequence=seq-1,reset=seq==1,revision=tostring(seq),
+  language_revision='keyed-'..seq,keys=seq,translations={Tool='工具 '..seq},removed={}})
+ Tick(0.25)
+end
+assert(versions-before<=2,'language cache reloaded too frequently: '..tostring(versions-before))
+local previous=versions;Tick(5);assert(versions==previous+1,'final language revision starved')
+local p={text='Tool'};patches['abysstext.draw.1'](nil,p);assert(p.text=='工具 30')
+commands.abyss_stop()
+""");
+Check("dense Chinese page cannot permanently starve later English capture", "", """
+FlushTimers();commands.abyss_translate();FlushTimers();local first=RequestData()
+Delta(first,1,{}, {},true);Tick(0.25)
+for frame=1,12 do
+ Tick(0.01)
+ for i=1,500 do patches['abysstext.draw.1'](nil,{text='已有汉化 '..i}) end
+ patches['abysstext.draw.1'](nil,{text='Untranslated late label'})
+end
+Tick(1)
+local found=false
+for _,r in ipairs(RequestData().records) do
+ assert(not r.text:find('已有汉化',1,true))
+ if r.text=='Untranslated late label' then found=true end
+end
+assert(found,'later English text starved behind already-localized text')
 """);
 Console.WriteLine($"{checks} isolated LuaCs/MoonSharp bridge checks passed. No real game or paid API was called.");
