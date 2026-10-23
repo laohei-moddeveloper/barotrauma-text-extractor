@@ -41,10 +41,21 @@ Linux Python 3.12：195 项通过，0 失败，0 跳过。
 dotnet run --project tools/live-tests/LiveTests.csproj -p:MoonSharpAssembly=路径/MoonSharp.Interpreter.dll -- --benchmark 基线.lua 候选.lua 输出.json
 ```
 
-Windows 构建、实际冻结 EXE、ZIP 一致性：等待本提交 CI，完成后补记录。源代码和候选同步同一 codex/abysstext-workbench 分支，不自动发布工坊、Release 或合并 main。
+Windows Python 195 项、真实 Tk、原有桌面吞吐回归、实际冻结 EXE 全部必需检查和 ZIP 一致性审核均通过；另下载三个 ZIP 重新核对 SHA256 一致。实际 EXE 默认渠道及 Google 固定 HTTPS 样本也通过，不能据此保证大陆网络或游戏帧率。源代码和候选同步同一 codex/abysstext-workbench 分支，不自动发布工坊、Release 或合并 main。
 
 ## 本机后续
 
 更新自己的工作台及配套插件并由用户在安全时机重新载入；确认 status.json runtime_build 为 bounded-render-fix-20261023。已有人工缓存保留，不需要重新导入。比较同一大页面和长时间切换页面的真实帧时间、控件/缓存/语言重载计数、译文修正和停止恢复。
 
 本轮不替换正在运行的程序、不控制游戏、不改 DLL/第三方模组/存档。一次引擎 getter、原生资源载入、字体布局或停止时恢复仍可能卡顿；尚未有真实游戏证据证明所有卡顿都消失。
+
+## 可下载候选
+
+测试源码：`c337f2c0a69768aec85b04bf066ed1675d9e9a68`。CI：https://github.com/laohei-moddeveloper/barotrauma-text-extractor/actions/runs/39889590638 ，Artifact ID `12474151479`（保留 14 天）。Windows/源码/插件包和 SHA256 位于该 artifact。本轮不更新工坊或公开 Release。
+
+```text
+156409892b61429f0803c4930fbfa1b12b710826ea6b7db1fa6cc5e523e42884  AbyssText-0.2.0-rc5-source.zip
+f051ce37faecd764b42f38474f612741ee4c0252f6159bb51ca8bde54dcb9aee  AbyssText-0.2.0-rc5-Windows-x64.zip
+8bfeb7226b5b37badd5715cca25cc97bf4a6698380328e3a5379fddca275fa45  AbyssTextLive-0.2.0-rc5.zip
+ca2492429663ad701581b789a6fee2d705c41534267bdaf12ba32faaedfafca2  BarotraumaTextExtractor.exe
+```

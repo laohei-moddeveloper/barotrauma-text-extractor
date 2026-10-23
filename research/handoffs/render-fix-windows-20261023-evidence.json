@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0-rc5",
+  "source_commit": "c337f2c0a69768aec85b04bf066ed1675d9e9a68",
+  "passed": true,
+  "zip_sha256": {
+    "AbyssText-0.2.0-rc5-source.zip": "156409892b61429f0803c4930fbfa1b12b710826ea6b7db1fa6cc5e523e42884",
+    "AbyssText-0.2.0-rc5-Windows-x64.zip": "f051ce37faecd764b42f38474f612741ee4c0252f6159bb51ca8bde54dcb9aee",
+    "AbyssTextLive-0.2.0-rc5.zip": "8bfeb7226b5b37badd5715cca25cc97bf4a6698380328e3a5379fddca275fa45"
+  },
+  "exe_sha256": "ca2492429663ad701581b789a6fee2d705c41534267bdaf12ba32faaedfafca2",
+  "frozen_online": {
+    "ok": true,
+    "translation": "打开舱门",
+    "issues": [],
+    "compound_check": {
+      "translation": "画皮泥偶迅猛龙",
+      "ok": true
+    },
+    "channel": "mymemory",
+    "elapsed_seconds": 1.593
+  },
+  "optional_frozen_checks": [
+    {
+      "name": "Google experimental frozen HTTPS",
+      "exit_code": 0,
+      "passed": true
+    }
+  ],
+  "google_online": {
+    "ok": true,
+    "translation": "打开舱口",
+    "issues": [],
+    "compound_check": {
+      "translation": "画皮泥偶迅猛龙",
+      "ok": true
+    },
+    "channel": "google",
+    "elapsed_seconds": 0.781
+  },
+  "source_all_tracked_files_match_commit_with_git_attributes": true,
+  "plugin_clean_payload_matches_checkout": true,
+  "windows_exe_matches_tested_exe": true,
+  "game_tested": false
+}
