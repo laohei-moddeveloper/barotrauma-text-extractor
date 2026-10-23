@@ -50,7 +50,7 @@ class LiveBridge:
         names=[name for name,(since,_) in self._read_issues.items() if now-since>=3]
         return '等待游戏桥接文件写入完整：'+', '.join(sorted(names)) if names else ''
 
-    def _snapshot(self,path,limit):
+    def _snapshot(self,path,limit,known_digest=None):
         """One bounded, nonblocking attempt. No ACK/cache advances on failure."""
         try:
             if path.is_symlink():raise ValueError('桥接输入不允许符号链接：'+path.name)
@@ -61,12 +61,13 @@ class LiveBridge:
             if len(raw)>limit:raise ValueError('游戏桥接文件过大：'+path.name)
             stamp=lambda st:(st.st_mtime_ns,st.st_size,st.st_ino)
             if stamp(before)!=stamp(after) or len(raw)!=after.st_size:raise json.JSONDecodeError('文件正在更新','',0)
-            data=json.loads(raw)
+            digest=hashlib.sha256(raw).hexdigest()
+            data=None if known_digest and digest==known_digest else json.loads(raw)
         except (OSError,UnicodeError,json.JSONDecodeError):
             self._read_issues.setdefault(path.name,(time.monotonic(),'incomplete'))
             return None
         self._read_issues.pop(path.name,None)
-        return data,stamp(after),hashlib.sha256(raw).hexdigest()
+        return data,stamp(after),digest
 
     def status(self, fresh=False):
         path=self.data/'status.json'
@@ -86,8 +87,10 @@ class LiveBridge:
         if not path.exists(): return None
         if path.is_symlink() or path.stat().st_size>1024*1024: raise ValueError("无效或过大的游戏内请求")
         stat=path.stat();stamp=(stat.st_mtime_ns,stat.st_size,stat.st_ino)
-        if stamp==self._request_stamp and path.name not in self._read_issues:return None
-        snapshot=self._snapshot(path,1024*1024)
+        # NTFS timestamps may be unchanged across two same-size Lua writes.
+        # Compare content before discarding a request, including session restarts.
+        # An unchanged digest skips JSON parsing, not the correctness-critical read.
+        snapshot=self._snapshot(path,1024*1024,self.seen)
         if snapshot is None:return None
         data,stamp,digest=snapshot
         if digest==self.seen:self._request_stamp=stamp;return None

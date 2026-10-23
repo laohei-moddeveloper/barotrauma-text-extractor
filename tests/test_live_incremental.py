@@ -65,6 +65,16 @@ class IncrementalBridgeTests(unittest.TestCase):
         report,_,_=self.bridge.read_request()
         self.assertEqual(report.entries[0].text,'Recovered tool');self.assertEqual(self.bridge.session_id,'repaired')
 
+    def test_same_size_same_timestamp_request_still_detects_session_restart(self):
+        self.request('one');path=self.root/'Live/requests.json';before=path.stat()
+        self.request('two')
+        # Recreate the Windows metadata collision independently of filesystem
+        # clock precision. New content must win over a cached metadata stamp.
+        os.utime(path,ns=(before.st_atime_ns,before.st_mtime_ns))
+        self.bridge.session_id='one';self.bridge._request_stamp=(before.st_mtime_ns,before.st_size,before.st_ino)
+        self.bridge.seen=__import__('hashlib').sha256(path.read_bytes().replace(b'two',b'one')).hexdigest()
+        self.assertIsNotNone(self.bridge.read_request());self.assertEqual(self.bridge.session_id,'two')
+
     def test_permanent_invalid_json_has_named_warning_and_clears_on_repair(self):
         path=self.root/'Live/status.json';path.write_bytes(b'')
         with patch('live_bridge.time.monotonic',return_value=10):self.assertIsNone(self.bridge.status(fresh=True))
