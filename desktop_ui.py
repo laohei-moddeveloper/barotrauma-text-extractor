@@ -636,6 +636,9 @@ class WorkbenchWindow:
     def settings_dialog(self):
         dialog=tk.Toplevel(self.root);dialog.title("翻译服务设置");dialog.configure(bg=BG)
         dialog.geometry("780x650")
+        # Reserve the action row before packing the scrollable form. Font/DPI
+        # changes must not leave Save clipped beneath the canvas viewport.
+        footer=ttk.Frame(dialog,padding=(22,10));footer.pack(side="bottom",fill="x")
         shell=ttk.Frame(dialog);shell.pack(fill="both",expand=True)
         canvas=tk.Canvas(shell,bg=BG,highlightthickness=0)
         scrollbar=ttk.Scrollbar(shell,orient="vertical",command=canvas.yview)
@@ -673,7 +676,7 @@ class WorkbenchWindow:
             self.mode_label.set("已连接游戏" if self.bridge else "桌面工作台" + " · " + self.provider.get())
             dialog.destroy()
             self.save_preferences()
-        ttk.Button(frame,text="保存设置（不发送请求）",style="Accent.TButton",command=save).pack(anchor="e")
+        ttk.Button(footer,text="保存设置（不发送请求）",style="Accent.TButton",command=save).pack(anchor="e")
 
     def start_drafts(self,selected=False,units=None,live=False):
         if self.busy or not self.ensure_project():return
